@@ -1,0 +1,10 @@
+.venv/
+.willow/
+.willow-demo/
+.DS_Store
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+dist/
+build/
