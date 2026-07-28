@@ -288,7 +288,9 @@ willow --json context "What matters now?"
 
 The release commitments behind these principles are explicit in
 [COVENANT.md](COVENANT.md). Security boundaries and presently unimplemented
-protections are listed in [SECURITY.md](SECURITY.md).
+protections are listed in [SECURITY.md](SECURITY.md). The ethical case, its
+strongest counterarguments, and the required red-team programme are in
+[ETHICS.md](ETHICS.md).
 
 ## Development
 
