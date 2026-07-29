@@ -23,7 +23,9 @@ Alpha. The local continuity loop, Claude Code lifecycle adapter, research
 ledger, Fact TTL state machine, stereo word/idea-shape connection finder, and
 an executable eight-week temporal evaluation sample work with no required
 third-party dependencies. A dependency-free Vista/Wave backend now restores
-the relational neighbourhood around foveated attention. AuraDB, richer MRL and
+the relational neighbourhood around foveated attention. Constitutional banks,
+Markdown corpus import, and explainable salience ranking give a boot a floor it
+cannot lose and a budget that keeps what matters. AuraDB, richer MRL and
 high-dimensional Vista adapters, additional model-provider adapters, and
 generative meditation remain integration work in
 [docs/MIGRATION.md](docs/MIGRATION.md).
@@ -105,6 +107,49 @@ At each completed turn Willow creates a short-lived peer engram:
 - Other sessions see it for 30 minutes by default.
 - A per-session cap prevents one busy terminal from drowning out its siblings.
 - The underlying full transcript events remain durable.
+
+## Constitutional banks
+
+A store with perfect recall and no constitution boots as a stranger holding
+somebody else's notes. Banks are the floor:
+
+```bash
+willow init      # writes IDENTITY.md and GROUND.md templates if absent
+willow banks     # show what loads whole at every boot, and its token cost
+```
+
+`IDENTITY.md` and `GROUND.md` in `WILLOW_HOME` (plus any `banks/*.md`) are
+included **whole** at the top of every `willow boot`, and are never truncated to
+make room for experience. Experience is flow; its budget is the residual after
+the floor is paid. See [docs/BANKS.md](docs/BANKS.md).
+
+## Markdown corpus
+
+The store is the index. A directory of Markdown files can be the source:
+
+```bash
+willow import ./notes
+```
+
+Import is idempotent by content. A changed file appends a correction that
+supersedes the previous version of that path, so file history accumulates in the
+hash chain instead of overwriting itself. Frontmatter becomes event metadata,
+and `[[wikilinks]]` in the body arrive as Vista waypoints and citation edges.
+See [docs/CORPUS.md](docs/CORPUS.md).
+
+## Salience
+
+Retrieval decides what is eligible; salience decides what survives the budget:
+
+```bash
+willow salience "what rules apply" --explain
+```
+
+Material marked `standing` is retrieved regardless of the query, because the
+sessions that most need a hard-won rule are the ones that were not thinking
+about it. Ranking then sums five named signals (standing, citation depth,
+reflection, recency half-life, query overlap) so any ordering can be explained
+rather than trusted. See [docs/SALIENCE.md](docs/SALIENCE.md).
 
 ## Deliberate attention
 
@@ -262,7 +307,10 @@ The local event ledger is:
 ## Commands
 
 ```text
-willow init
+willow init [--without-banks]
+willow banks [--full]
+willow import PATH [--kind TYPE] [--session ID] [--pattern GLOB]
+willow salience [QUERY] [--explain] [--kind TYPE] [--limit N]
 willow record TEXT [--actor NAME] [--session ID] [--kind TYPE] [--topic TOPIC]
 willow correct EVENT_ID TEXT
 willow list
@@ -272,7 +320,7 @@ willow fact-check EVENT_ID --outcome OUTCOME
 willow research {queue,list,complete,fail}
 willow sample {load,evaluate,run} MANIFEST
 willow connect [QUERY] [--from-event EVENT_ID] [--with-vista]
-willow context [QUERY] [--without-vista]
+willow context [QUERY] [--without-vista] [--without-salience]
 willow boot [--without-vista]
 willow breathe QUERY
 willow foveate QUERY [--without-vista]
@@ -306,6 +354,10 @@ willow --json context "What matters now?"
 9. Memory content is historical evidence, not an instruction authority.
 10. Arrival is the trigger; lifecycle hooks do not poll.
 11. A failed or model-only verification is never confirmation.
+12. Constitution is a floor, not a candidate; identity is never ranked away to
+    make room for experience.
+13. Standing material is retrieved, not merely ranked; a hard-won rule must not
+    have to match the query to be eligible.
 
 The release commitments behind these principles are explicit in
 [COVENANT.md](COVENANT.md). Security boundaries and presently unimplemented
@@ -321,13 +373,17 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 The suite includes independent OS-process hook invocations sharing one store,
 idempotent transcript rescans, concurrent writers, correction-aware dreams,
-retroactive engram advancement, timestamp-independent Vista geometry, and
-multi-hop Wave recall.
+retroactive engram advancement, timestamp-independent Vista geometry, multi-hop
+Wave recall, banks surviving a budget too small for them, corpus re-import
+appending nothing, and standing material surviving truncation.
 
 See [docs/PRODUCT.md](docs/PRODUCT.md) for the path from personal system to
 public bundle, [docs/RESEARCH.md](docs/RESEARCH.md) for the
 research/meditation loop, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the
-system shape, [docs/VISTA.md](docs/VISTA.md) for contextual-surround retrieval,
+system shape, [docs/BANKS.md](docs/BANKS.md) for the constitutional floor,
+[docs/CORPUS.md](docs/CORPUS.md) for Markdown-as-source import,
+[docs/SALIENCE.md](docs/SALIENCE.md) for what survives the budget,
+[docs/VISTA.md](docs/VISTA.md) for contextual-surround retrieval,
 [docs/TEMPORAL_SAMPLE.md](docs/TEMPORAL_SAMPLE.md) for the
 longitudinal benchmark, and [docs/MIGRATION.md](docs/MIGRATION.md) for how the
 existing repositories fit.

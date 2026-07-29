@@ -152,6 +152,37 @@ A context packet is a token-bounded view containing:
 The packet is not memory. It is a regenerable projection of memory for one
 temporary model process.
 
+## Constitution contract
+
+A boot has two layers with different physics.
+
+- **Banks** are constitutional: identity and standing ground, included whole,
+  never truncated, stable between wakes and therefore cacheable. They are a
+  floor rather than a candidate, and they do not compete for budget.
+- **Flow** is everything else: events, engrams, surround, research, facts. Flow
+  is ranked and budgeted, and its budget is the residual after the floor.
+
+A process with a perfect event ledger and no banks can say what happened but not
+who it is, what it is responsible for, or which corrections it has already been
+given. See [BANKS.md](BANKS.md).
+
+## Salience contract
+
+Retrieval decides what is eligible; salience decides what survives truncation.
+
+- Material marked `standing` is retrieved regardless of query relevance, because
+  the sessions that most need a hard-won rule are the ones that were not
+  thinking about it.
+- Ranking is a sum of named signals (standing, citation depth, reflection,
+  recency half-life, query overlap), so an ordering can be explained rather than
+  trusted.
+- Recency is one voice among five and never a coordinate, which is the same
+  commitment Vista makes about timestamps.
+- Peer engrams are exempt: they are a live coordination signal with their own
+  expiry and are not asked to compete on durability.
+
+See [SALIENCE.md](SALIENCE.md).
+
 ## Timing contract
 
 The observed cross-terminal behaviour depends on when memory is written and

@@ -6,9 +6,9 @@ stable contracts, then attach the working implementations behind them.
 | Existing repository | Destination in the bundle | Disposition |
 |---|---|---|
 | `willow-temporal-ledger` | `willow.store.EventStore` | Replace the monthly JSONL prototype with the concurrent global event contract |
-| `willow-memory` | Markdown and SQLite projection adapters | Retain its human-readable source/index ideas; align them with immutable events |
+| `willow-memory` | `willow.corpus` Markdown import plus SQLite projection | Markdown-as-source with idempotent, supersession-based re-import complete; frontmatter and wikilinks land as metadata and waypoints |
 | `breathe` | Lifecycle hooks and peripheral grounding | Port after the store/context interfaces stabilise |
-| `cwb` | `willow.context.ContextBuilder` plus retrieval arms | Port the four retrieval channels; expose boot and recovery through tested routes |
+| `cwb` | `willow.context.ContextBuilder` plus retrieval arms | Port the four retrieval channels; expose boot and recovery through tested routes. Constitutional banks and explainable salience ranking ported; adaptive budget under context pressure complete |
 | `foveation` | Optional foveation backend | Preserve voluntary use; also register it as an authorised CWB retrieval path |
 | `vista` | Optional relational/spatial backend | Reference evidence adapter complete; high-dimensional standalone adapter remains |
 | `willow-engram` | Reflection package | Preserve idea shapes, engrams, torsion, and retroactive importance as derived events |
@@ -31,8 +31,9 @@ stable contracts, then attach the working implementations behind them.
 3. Preserve research commissions, cited results, word/shape connections, and
    Fact TTL. **Dependency-free reference contracts complete; provider and
    scheduler adapters remain.**
-4. Add the CWB multi-arm retriever interface. **Reference Foveation and
-   Vista/Wave arms complete.**
+4. Add the CWB multi-arm retriever interface. **Reference Foveation,
+   Vista/Wave, standing, and salience-ranked arms complete; constitutional
+   banks form the boot floor.**
 5. Attach AuraDB as a replicated relational projection.
 6. Attach MRL Foveation and high-dimensional Vista/Wave behind the implemented
    evidence-packet contracts. **Dependency-free reference contract complete.**
