@@ -1,4 +1,4 @@
-"""Stereo connection-finding across words and explicit idea-shapes.
+"""Connection-finding across words, explicit idea-shapes, and Vista/Wave.
 
 The dependency-free reference backend intentionally keeps two channels
 separate:
@@ -7,8 +7,9 @@ separate:
 * idea-shape overlap asks whether they carry the same explicit structural
   dimensions, even when their vocabulary differs.
 
-Vista/Wave can later supply a third structural-graph score behind this
-contract.  It must not be relabelled as ordinary vector similarity.
+Vista/Wave supplies an optional third structural-graph score behind this
+contract.  It is reported independently rather than relabelled as ordinary
+vector similarity.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from typing import Any, Iterable
 
 from willow.events import Event
 from willow.store import EventStore
+from willow.vista import RelationalBackend, VistaBackend, VistaEvidence
 
 
 CONNECTION_KINDS = {
@@ -172,6 +174,10 @@ class ConnectionCandidate:
     shared_shapes: tuple[str, ...]
     shared_dimensions: tuple[str, ...]
     channels: tuple[str, ...]
+    vista_score: float = 0.0
+    wave_score: float = 0.0
+    relational_waypoints: tuple[str, ...] = ()
+    vista_slugs: tuple[str, ...] = ()
 
 
 def find_connections(
@@ -182,8 +188,10 @@ def find_connections(
     shapes: Iterable[str] = (),
     limit: int = 10,
     kinds: Iterable[str] = CONNECTION_KINDS,
+    include_vista: bool = False,
+    relational_backend: RelationalBackend | None = None,
 ) -> list[ConnectionCandidate]:
-    """Find active records related by words, shape, or both."""
+    """Find active records related by words, shape, and optional Vista/Wave."""
 
     seed: Event | None = None
     if seed_event_id:
@@ -200,6 +208,19 @@ def find_connections(
         seed_shapes.update(event_shapes(seed))
     if not seed_terms and not seed_shapes:
         raise ValueError("connection search needs a query, shape, or seed event")
+
+    relational: dict[str, VistaEvidence] = {}
+    if include_vista:
+        backend = relational_backend or VistaBackend(store)
+        vista_result = backend.query(
+            query or (seed.content if seed else ""),
+            seed_event_ids=(seed.id,) if seed else (),
+            limit=max(limit * 3, 20),
+        )
+        relational = {
+            item.event.id: item
+            for item in vista_result.evidence
+        }
 
     accepted_kinds = set(kinds)
     events = [
@@ -226,7 +247,12 @@ def find_connections(
             shared_shapes,
             shared_dimensions,
         ) = _shape_overlap(seed_shapes, candidate_shapes)
-        if lexical_score == 0 and shape_score == 0:
+        vista_evidence = relational.get(event.id)
+        if (
+            lexical_score == 0
+            and shape_score == 0
+            and vista_evidence is None
+        ):
             continue
 
         channels = []
@@ -234,7 +260,9 @@ def find_connections(
             channels.append("words")
         if shape_score:
             channels.append("shape")
-        stereo_bonus = 0.1 if len(channels) == 2 else 0.0
+        if vista_evidence is not None:
+            channels.extend(vista_evidence.channels)
+        stereo_bonus = 0.1 if lexical_score and shape_score else 0.0
         cross_form_bonus = (
             0.05
             if seed is not None and seed.kind != event.kind
@@ -247,6 +275,12 @@ def find_connections(
             + stereo_bonus
             + cross_form_bonus,
         )
+        if vista_evidence is not None:
+            score = min(
+                1.0,
+                max(score, vista_evidence.score)
+                + (0.05 if lexical_score or shape_score else 0.0),
+            )
         candidates.append(
             ConnectionCandidate(
                 event=event,
@@ -256,6 +290,26 @@ def find_connections(
                 shared_terms=tuple(shared_terms[:12]),
                 shared_shapes=tuple(shared_shapes[:12]),
                 shared_dimensions=tuple(shared_dimensions[:12]),
+                vista_score=(
+                    vista_evidence.vista_score
+                    if vista_evidence is not None
+                    else 0.0
+                ),
+                wave_score=(
+                    vista_evidence.wave_score
+                    if vista_evidence is not None
+                    else 0.0
+                ),
+                relational_waypoints=(
+                    vista_evidence.waypoints
+                    if vista_evidence is not None
+                    else ()
+                ),
+                vista_slugs=(
+                    vista_evidence.vista_slugs
+                    if vista_evidence is not None
+                    else ()
+                ),
                 channels=tuple(channels),
             )
         )

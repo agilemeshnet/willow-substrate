@@ -9,6 +9,7 @@ from willow.engrams import peer_engrams
 from willow.events import Event
 from willow.foveation import FoveationResult, Foveator
 from willow.store import EventStore
+from willow.vista import RelationalBackend, VistaBackend, VistaResult
 
 
 @dataclass(frozen=True)
@@ -21,14 +22,21 @@ class ContextPacket:
     foveation: FoveationResult | None = None
     requested_tokens: int | None = None
     pressure_phase: str = "open"
+    vista: VistaResult | None = None
 
 
 class ContextBuilder:
     """Assemble a bounded context view without changing source events."""
 
-    def __init__(self, store: EventStore):
+    def __init__(
+        self,
+        store: EventStore,
+        *,
+        relational_backend: RelationalBackend | None = None,
+    ):
         self.store = store
         self.foveator = Foveator(store)
+        self.relational_backend = relational_backend or VistaBackend(store)
 
     def build(
         self,
@@ -39,6 +47,7 @@ class ContextBuilder:
         exclude_session_id: str | None = None,
         mode: str = "ambient",
         use_foveation: bool = True,
+        use_vista: bool = True,
         include_hot_peers: bool = True,
         recent_input_tokens: int = 0,
         context_limit: int = 0,
@@ -54,6 +63,19 @@ class ContextBuilder:
         foveation = (
             self.foveator.foveate(query, mode=mode, event_limit=16)
             if use_foveation and query.strip()
+            else None
+        )
+        vista = (
+            self.relational_backend.query(
+                query,
+                seed_event_ids=(
+                    foveation.event_ids[:5]
+                    if foveation is not None
+                    else ()
+                ),
+                limit=8,
+            )
+            if use_vista and query.strip()
             else None
         )
 
@@ -81,6 +103,10 @@ class ContextBuilder:
         if foveation:
             for hit in foveation.hits:
                 add("focused", hit.event)
+
+        if vista:
+            for hit in vista.hits:
+                add(hit.source, hit.event)
 
         if query.strip():
             for hit in self.store.search(
@@ -155,6 +181,7 @@ class ContextBuilder:
             estimated_tokens=max(1, len(markdown) // 4),
             mode=mode,
             foveation=foveation,
+            vista=vista,
             requested_tokens=token_budget,
             pressure_phase=pressure_phase,
         )
@@ -184,6 +211,7 @@ class ContextBuilder:
         *,
         agent: str = "willow",
         token_budget: int = 4000,
+        use_vista: bool = True,
     ) -> ContextPacket:
         """Build a stable boot packet with optional local identity banks."""
 
@@ -214,6 +242,7 @@ class ContextBuilder:
             "current priorities active work recent decisions",
             token_budget=remaining,
             mode="recovery",
+            use_vista=use_vista,
             include_hot_peers=True,
         )
         markdown = prefix + "\n\n---\n\n" + continuity.markdown
@@ -224,6 +253,7 @@ class ContextBuilder:
             estimated_tokens=max(1, len(markdown) // 4),
             mode="boot",
             foveation=continuity.foveation,
+            vista=continuity.vista,
             requested_tokens=token_budget,
             pressure_phase=continuity.pressure_phase,
         )

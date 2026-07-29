@@ -35,6 +35,7 @@ flowchart TB
         Breathe --> CWB
         CWB -->|ambient or recovery| Foveation
         Foveation --> Evidence
+        Foveation -->|focused events as beams| Vista
         Vista --> Evidence
         Evidence --> CWB
     end
@@ -85,6 +86,7 @@ flowchart TB
     Correction --> Validity
 
     Events --> CWB
+    Events --> Vista
     Sources --> CWB
     Working --> CWB
     Graph --> CWB
@@ -130,8 +132,11 @@ Foveation is not owned by CWB.
 - Breathe may provide a peripheral signal that suggests deeper foveation.
 - Every foveation returns evidence and a decision trace.
 
-The dependency-free reference backend narrows through sessions and events. The
-MRL hypergraph backend and Vista will implement the same conceptual contract.
+The dependency-free foveation backend narrows through sessions and events.
+Those focused events become reference beams for the dependency-free Vista
+backend, which restores the contextual surround and runs a multi-hop Wave.
+The MRL hypergraph and high-dimensional Vista implementations can replace
+these reference backends through the same evidence contracts.
 
 ## Context contract
 
@@ -141,6 +146,7 @@ A context packet is a token-bounded view containing:
 - Selected active events
 - Recent work
 - Relevant meditations and summations
+- Vista/Wave contextual-surround evidence and decision trace
 - Event IDs, timestamps, actors, sessions, kinds, and retrieval source
 
 The packet is not memory. It is a regenerable projection of memory for one
@@ -200,11 +206,12 @@ Research commissions are durable questions. Provider adapters append cited
 results; the core does not require a particular search service or LLM.
 
 Meditations may carry explicit `dimension:value` idea-shapes. Connection
-retrieval is stereo:
+retrieval keeps its channels separate:
 
 - the word channel reports lexical or semantic overlap;
 - the explicit-shape channel reports exact tags and weaker shared dimensions;
-- a future Vista/Wave backend reports relational traversal separately.
+- the optional Vista/Wave channel reports relational traversal, carrying the
+  Vista slugs and waypoints that caused each result.
 
 Each candidate carries per-channel scores and the signals that caused the
 match. A connection is an associative proposal until reviewed.

@@ -24,7 +24,9 @@ The reference core:
 - treats corrections as new events;
 - does not call a model or cloud service by itself;
 - safe-stages research commissions by default;
-- keeps model and graph providers behind adapters.
+- keeps model and graph providers behind adapters;
+- builds Vista/Wave locally as a derived view over active, unexpired events;
+- returns Vista slugs, waypoints, source event IDs, and a decision trace.
 
 The alpha does not yet provide:
 
@@ -47,8 +49,14 @@ to an untrusted network.
 - a provider receiving more context than the user intended;
 - access being mistaken for consent to disclose;
 - semantic reconstruction inventing a coherent but unsupported story;
+- relational recall re-associating sensitive facts that were harmless apart;
 - one compromised federation node contaminating trusted projections;
 - tool capability or authority expanding through remembered instructions;
 - dependency, manipulation, or pressure created by an accumulated persona.
 
 See [COVENANT.md](COVENANT.md) for the commitments governing these risks.
+
+Vista relevance does not grant permission to disclose an event. The reference
+backend respects correction and expiry state, but the alpha still lacks a
+complete audience/purpose enforcement layer. Treat every contextual surround as
+sensitive until the caller's disclosure policy has independently authorised it.

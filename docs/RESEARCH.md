@@ -100,6 +100,7 @@ backend uses a transparent sparse comparison:
 
 ```bash
 willow connect --from-event evt-meditation...
+willow connect --from-event evt-meditation... --with-vista
 ```
 
 ### Relational shape
@@ -114,12 +115,16 @@ Vista/Wave is a different geometry:
 - decayed citation mass is conductance;
 - restart damping prevents a generic hub from consuming the field.
 
-This must remain an optional structural backend. Vector similarity must not be
-presented as though it were relational Wave retrieval.
+The dependency-free reference backend is available through `--with-vista` and
+is used automatically as the contextual surround for `context`, `boot`, and
+`foveate`. Vector similarity is not presented as though it were relational
+Wave retrieval: candidates retain separate `vista_score`, `wave_score`, Vista
+slugs, and carrying waypoints.
 
 Connections returned by both word and structural channels are especially
 useful anchors. Items unique to either channel are complementary lateral
-surfaces, not automatic errors.
+surfaces, not automatic errors. See [VISTA.md](VISTA.md) for the equations,
+attention cycle, and limits.
 
 ## Epistemic boundary
 

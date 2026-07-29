@@ -54,8 +54,10 @@ willow
 
 The current alpha implements the core, Claude Code lifecycle adapter, local
 reflection, research ledger, Fact TTL, and dependency-free word/shape
-connection finder. AuraDB, Vista/Wave, richer model-generated meditation,
-federation, voice, and a safe remote API remain adapters.
+connection finder. It also includes a dependency-free Vista/Wave contextual
+surround over active Willow events. AuraDB, the richer high-dimensional Vista
+implementation, model-generated meditation, federation, voice, and a safe
+remote API remain adapters.
 
 ## Three installation experiences
 
@@ -84,18 +86,18 @@ Add:
 The research provider is disposable. The question, evidence, interpretation,
 claims, corrections, and future re-checks belong to Willow.
 
-### 3. Distributed Willow
+### 3. Relational and distributed Willow
 
 Add optional relational and homelab organs:
 
 - AuraDB or local Neo4j as a graph projection;
-- Vista/Wave for relational-shape recall;
-- Foveation for deliberate attention;
+- richer high-dimensional Vista and MRL Foveation backends;
 - signed federation envelopes between trusted nodes;
 - local voice, browser, and actuator capabilities.
 
-This profile should come later. It must not be required to experience Willow's
-core benefit.
+The reference Vista/Foveation attention cycle works locally without these
+organs. This profile increases scale and retrieval quality; it must not be
+required to experience Willow's core benefit.
 
 ## User state is not the package
 

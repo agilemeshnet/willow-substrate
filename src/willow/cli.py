@@ -22,6 +22,7 @@ from willow.reflection import meditate, summarize_session
 from willow.research import Citation, ResearchLedger
 from willow.samples import evaluate_temporal_sample, load_temporal_sample
 from willow.store import EventStore
+from willow.vista import VistaBackend, VistaResult
 
 
 def _event_dict(event: Event) -> dict[str, Any]:
@@ -49,6 +50,51 @@ def _print_event(event: Event, as_json: bool) -> None:
         f"{event.session_id}  {event.actor}/{event.kind}"
     )
     print(event.content)
+
+
+def _vista_dict(result: VistaResult | None) -> dict[str, Any] | None:
+    if result is None:
+        return None
+    return {
+        "query": result.query,
+        "seed_event_ids": list(result.seed_event_ids),
+        "reference_beams": [
+            {
+                "name": beam.name,
+                "kind": beam.kind,
+                "weight": round(beam.weight, 6),
+                "source": beam.source,
+            }
+            for beam in result.reference_beams
+        ],
+        "vistas": [
+            {
+                "slug": match.vista.slug,
+                "score": round(match.score, 6),
+                "semantic_score": round(match.semantic_score, 6),
+                "gaussian_score": round(match.gaussian_score, 6),
+                "waypoint_score": round(match.waypoint_score, 6),
+                "alpha": round(match.vista.alpha, 6),
+                "sigma": round(match.vista.sigma, 6),
+                "member_ids": list(match.vista.member_ids),
+                "shared_waypoints": list(match.shared_waypoints),
+            }
+            for match in result.matches
+        ],
+        "evidence": [
+            {
+                "event": _event_dict(item.event),
+                "score": round(item.score, 6),
+                "vista_score": round(item.vista_score, 6),
+                "wave_score": round(item.wave_score, 6),
+                "vista_slugs": list(item.vista_slugs),
+                "waypoints": list(item.waypoints),
+                "channels": list(item.channels),
+            }
+            for item in result.evidence
+        ],
+        "trace": list(result.trace),
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -226,10 +272,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="ambient",
     )
     context.add_argument("--without-foveation", action="store_true")
+    context.add_argument("--without-vista", action="store_true")
 
     boot = sub.add_parser("boot", help="Build stable grounding for a new process")
     boot.add_argument("--agent", default="willow")
     boot.add_argument("--tokens", type=int, default=4000)
+    boot.add_argument("--without-vista", action="store_true")
 
     breathe = sub.add_parser("breathe", help="Return a peripheral grounding signal")
     breathe.add_argument("query")
@@ -237,6 +285,18 @@ def build_parser() -> argparse.ArgumentParser:
     foveate = sub.add_parser("foveate", help="Deliberately focus shared experience")
     foveate.add_argument("query")
     foveate.add_argument("--limit", type=int, default=12)
+    foveate.add_argument("--without-vista", action="store_true")
+
+    vista = sub.add_parser(
+        "vista",
+        help="Inspect the contextual surround and Wave from a query or event",
+    )
+    vista.add_argument("query", nargs="?", default="")
+    vista.add_argument("--seed-event", action="append", default=[])
+    vista.add_argument("--limit", type=int, default=8)
+    vista.add_argument("--wave-hops", type=int, default=4)
+    vista.add_argument("--wave-damping", type=float, default=0.5)
+    vista.add_argument("--max-events", type=int, default=2000)
 
     meditation = sub.add_parser(
         "meditate",
@@ -249,12 +309,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     connect = sub.add_parser(
         "connect",
-        help="Find research connections by words and explicit idea-shape",
+        help="Find connections by words, idea-shape, and optional Vista/Wave",
     )
     connect.add_argument("query", nargs="?", default="")
     connect.add_argument("--from-event")
     connect.add_argument("--shape", action="append", default=[])
     connect.add_argument("--limit", type=int, default=10)
+    connect.add_argument(
+        "--with-vista",
+        action="store_true",
+        help="Add relational Vista/Wave evidence as separate channels",
+    )
 
     summation = sub.add_parser(
         "summarize",
@@ -626,6 +691,7 @@ def main(argv: list[str] | None = None) -> int:
                 session_id=args.session,
                 mode=args.mode,
                 use_foveation=not args.without_foveation,
+                use_vista=not args.without_vista,
             )
             if args.json:
                 print(json.dumps({
@@ -634,6 +700,7 @@ def main(argv: list[str] | None = None) -> int:
                     "estimated_tokens": packet.estimated_tokens,
                     "event_ids": packet.event_ids,
                     "context": packet.markdown,
+                    "vista": _vista_dict(packet.vista),
                 }))
             else:
                 print(packet.markdown)
@@ -643,6 +710,7 @@ def main(argv: list[str] | None = None) -> int:
             packet = ContextBuilder(store).boot(
                 agent=args.agent,
                 token_budget=args.tokens,
+                use_vista=not args.without_vista,
             )
             if args.json:
                 print(json.dumps({
@@ -650,6 +718,7 @@ def main(argv: list[str] | None = None) -> int:
                     "estimated_tokens": packet.estimated_tokens,
                     "event_ids": packet.event_ids,
                     "context": packet.markdown,
+                    "vista": _vista_dict(packet.vista),
                 }))
             else:
                 print(packet.markdown)
@@ -664,6 +733,15 @@ def main(argv: list[str] | None = None) -> int:
                 args.query,
                 mode="voluntary",
                 event_limit=args.limit,
+            )
+            vista_result = (
+                VistaBackend(store).query(
+                    args.query,
+                    seed_event_ids=result.event_ids[:5],
+                    limit=args.limit,
+                )
+                if not args.without_vista
+                else None
             )
             if args.json:
                 print(json.dumps({
@@ -687,7 +765,27 @@ def main(argv: list[str] | None = None) -> int:
                         }
                         for hit in result.hits
                     ],
+                    "vista": _vista_dict(vista_result),
                 }))
+            else:
+                print(result.to_markdown())
+                if vista_result is not None:
+                    print("\n\n" + vista_result.to_markdown())
+            return 0
+
+        if args.command == "vista":
+            result = VistaBackend(
+                store,
+                max_events=args.max_events,
+                wave_damping=args.wave_damping,
+            ).query(
+                args.query,
+                seed_event_ids=args.seed_event,
+                limit=args.limit,
+                wave_hops=args.wave_hops,
+            )
+            if args.json:
+                print(json.dumps(_vista_dict(result), ensure_ascii=False))
             else:
                 print(result.to_markdown())
             return 0
@@ -710,6 +808,7 @@ def main(argv: list[str] | None = None) -> int:
                 query=args.query,
                 shapes=args.shape,
                 limit=args.limit,
+                include_vista=args.with_vista,
             )
             rows = [
                 {
@@ -717,11 +816,17 @@ def main(argv: list[str] | None = None) -> int:
                     "score": round(candidate.score, 4),
                     "lexical_score": round(candidate.lexical_score, 4),
                     "shape_score": round(candidate.shape_score, 4),
+                    "vista_score": round(candidate.vista_score, 4),
+                    "wave_score": round(candidate.wave_score, 4),
                     "shared_terms": list(candidate.shared_terms),
                     "shared_shapes": list(candidate.shared_shapes),
                     "shared_dimensions": list(
                         candidate.shared_dimensions
                     ),
+                    "relational_waypoints": list(
+                        candidate.relational_waypoints
+                    ),
+                    "vista_slugs": list(candidate.vista_slugs),
                     "channels": list(candidate.channels),
                 }
                 for candidate in candidates
@@ -753,6 +858,11 @@ def main(argv: list[str] | None = None) -> int:
                         print(
                             "  words: "
                             + ", ".join(row["shared_terms"])
+                        )
+                    if row["relational_waypoints"]:
+                        print(
+                            "  waypoints: "
+                            + ", ".join(row["relational_waypoints"])
                         )
             return 0
 

@@ -22,9 +22,11 @@ archaeology. This repository is the installable contract.
 Alpha. The local continuity loop, Claude Code lifecycle adapter, research
 ledger, Fact TTL state machine, stereo word/idea-shape connection finder, and
 an executable eight-week temporal evaluation sample work with no required
-third-party dependencies. AuraDB, MRL Foveation,
-Vista/Wave, additional model-provider adapters, and generative meditation
-remain integration work in [docs/MIGRATION.md](docs/MIGRATION.md).
+third-party dependencies. A dependency-free Vista/Wave backend now restores
+the relational neighbourhood around foveated attention. AuraDB, richer MRL and
+high-dimensional Vista adapters, additional model-provider adapters, and
+generative meditation remain integration work in
+[docs/MIGRATION.md](docs/MIGRATION.md).
 
 ## Quick start
 
@@ -113,10 +115,25 @@ willow foveate "connectome recurrent motifs"
 ```
 
 The bundled reference policy narrows from sessions, to matching events, to
-their experiential neighbourhood and returns a decision trace. It is
-dependency-free so the continuity demonstration works immediately. The
-Matryoshka/hypergraph implementation from `agilemeshnet/foveation` will become
-an optional backend behind this interface.
+their experiential neighbourhood and returns a decision trace. The focused
+events then become reference beams into Vista, which returns the wider
+relational neighbourhood and a degree-normalised multi-hop Wave. Thus
+foveation answers *what is in focus?* while Vista answers *what contextual
+whole does this belong to?*
+
+Inspect that surround directly:
+
+```bash
+willow vista "connectome recurrent motifs"
+willow vista --seed-event evt-...
+```
+
+Both paths are dependency-free so the continuity demonstration works
+immediately. Use `--without-vista` on `context`, `boot`, or `foveate` to compare
+focused-only retrieval. The Matryoshka/hypergraph implementation from
+`agilemeshnet/foveation` and the high-dimensional implementation from
+`agilemeshnet/vista` remain richer replacement backends behind the same
+evidence contract. See [docs/VISTA.md](docs/VISTA.md).
 
 For a low-cost peripheral signal:
 
@@ -174,11 +191,13 @@ willow meditate --session terminal-a \
   --shape "mechanism:recurrent-stabilisation"
 
 willow connect --from-event evt-...
+willow connect --from-event evt-... --with-vista
 ```
 
-The dependency-free shape channel compares explicit dimensions. Vista/Wave
-will provide relational-shape retrieval as a distinct optional backend; Willow
-does not relabel vector similarity as structural evidence.
+The dependency-free shape channel compares explicit dimensions. `--with-vista`
+adds separately scored Vista and Wave channels, including the waypoints that
+caused the connection. Willow does not relabel vector similarity as structural
+evidence.
 
 ### Test cumulative scene formation
 
@@ -252,11 +271,12 @@ willow facts [--due]
 willow fact-check EVENT_ID --outcome OUTCOME
 willow research {queue,list,complete,fail}
 willow sample {load,evaluate,run} MANIFEST
-willow connect [QUERY] [--from-event EVENT_ID] [--shape DIMENSION:VALUE]
-willow context [QUERY]
-willow boot
+willow connect [QUERY] [--from-event EVENT_ID] [--with-vista]
+willow context [QUERY] [--without-vista]
+willow boot [--without-vista]
 willow breathe QUERY
-willow foveate QUERY
+willow foveate QUERY [--without-vista]
+willow vista [QUERY] [--seed-event EVENT_ID] [--wave-hops N]
 willow meditate --session ID
 willow summarize --session ID
 willow dream [QUERY]
@@ -280,11 +300,12 @@ willow --json context "What matters now?"
 3. Identity and continuity belong to the substrate, not one model.
 4. Context is a bounded, regenerable view.
 5. Foveation is a voluntary Willow capability; CWB may also consume it.
-6. Every retrieved or derived item carries provenance.
-7. Local operation is the default; cloud services are optional adapters.
-8. Memory content is historical evidence, not an instruction authority.
-9. Arrival is the trigger; lifecycle hooks do not poll.
-10. A failed or model-only verification is never confirmation.
+6. Relations guide recall; timestamps remain provenance rather than geometry.
+7. Every retrieved or derived item carries provenance.
+8. Local operation is the default; cloud services are optional adapters.
+9. Memory content is historical evidence, not an instruction authority.
+10. Arrival is the trigger; lifecycle hooks do not poll.
+11. A failed or model-only verification is never confirmation.
 
 The release commitments behind these principles are explicit in
 [COVENANT.md](COVENANT.md). Security boundaries and presently unimplemented
@@ -300,11 +321,13 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 The suite includes independent OS-process hook invocations sharing one store,
 idempotent transcript rescans, concurrent writers, correction-aware dreams,
-and retroactive engram advancement.
+retroactive engram advancement, timestamp-independent Vista geometry, and
+multi-hop Wave recall.
 
 See [docs/PRODUCT.md](docs/PRODUCT.md) for the path from personal system to
 public bundle, [docs/RESEARCH.md](docs/RESEARCH.md) for the
 research/meditation loop, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the
-system shape, [docs/TEMPORAL_SAMPLE.md](docs/TEMPORAL_SAMPLE.md) for the
+system shape, [docs/VISTA.md](docs/VISTA.md) for contextual-surround retrieval,
+[docs/TEMPORAL_SAMPLE.md](docs/TEMPORAL_SAMPLE.md) for the
 longitudinal benchmark, and [docs/MIGRATION.md](docs/MIGRATION.md) for how the
 existing repositories fit.
