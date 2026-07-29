@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
 
+from willow.banks import Bank, load_banks, render_banks
 from willow.engrams import peer_engrams
 from willow.events import Event
 from willow.foveation import FoveationResult, Foveator
+from willow.salience import SalienceScore, is_standing, rank_selection
 from willow.store import EventStore
 from willow.vista import RelationalBackend, VistaBackend, VistaResult
 
@@ -23,6 +24,8 @@ class ContextPacket:
     requested_tokens: int | None = None
     pressure_phase: str = "open"
     vista: VistaResult | None = None
+    banks: tuple[Bank, ...] = ()
+    salience: dict[str, SalienceScore] = field(default_factory=dict)
 
 
 class ContextBuilder:
@@ -49,6 +52,10 @@ class ContextBuilder:
         use_foveation: bool = True,
         use_vista: bool = True,
         include_hot_peers: bool = True,
+        use_salience: bool = True,
+        include_standing: bool = True,
+        standing_limit: int = 8,
+        standing_scan: int = 400,
         recent_input_tokens: int = 0,
         context_limit: int = 0,
     ) -> ContextPacket:
@@ -100,6 +107,24 @@ class ContextBuilder:
             ):
                 add("hot-peer", event)
 
+        # Standing material is retrieved rather than merely ranked. A rule that
+        # was learned by something going wrong must not have to match the query
+        # to be eligible; relevance is exactly the thing a standing rule cannot
+        # rely on, because the sessions that most need it are the ones that
+        # were not thinking about it. Ranking still decides where it lands.
+        if include_standing and standing_limit > 0:
+            found = 0
+            for event in self.store.events(
+                limit=standing_scan,
+                exclude_session_id=exclude_session_id,
+                active_only=True,
+            ):
+                if found >= standing_limit:
+                    break
+                if is_standing(event.metadata) and event.id not in seen:
+                    add("standing", event)
+                    found += 1
+
         if foveation:
             for hit in foveation.hits:
                 add("focused", hit.event)
@@ -138,6 +163,12 @@ class ContextBuilder:
             active_only=True,
         ):
             add("summation", event)
+
+        # Retrieval decided what is eligible. Salience decides what survives the
+        # budget, so truncation stops being an accident of retrieval order.
+        salience: dict[str, SalienceScore] = {}
+        if use_salience and selected:
+            selected, salience = rank_selection(selected, query=query)
 
         char_budget = effective_budget * 4
         lines = [
@@ -184,6 +215,7 @@ class ContextBuilder:
             vista=vista,
             requested_tokens=token_budget,
             pressure_phase=pressure_phase,
+            salience=salience,
         )
 
     @staticmethod
@@ -213,8 +245,15 @@ class ContextBuilder:
         token_budget: int = 4000,
         use_vista: bool = True,
     ) -> ContextPacket:
-        """Build a stable boot packet with optional local identity banks."""
+        """Build a boot packet: constitutional banks whole, then ranked flow.
 
+        Banks are the floor.  They are included whole and are never truncated,
+        because a region that has to compete for its own identity against this
+        morning's messages is not the same region between wakes.  Experience is
+        flow, and its budget is whatever remains after the floor is paid.
+        """
+
+        banks = load_banks(self.store.home)
         lines = [
             "# Willow boot",
             f"Agent label: {agent}",
@@ -222,19 +261,13 @@ class ContextBuilder:
             "Continuity belongs to the shared substrate, not to a particular "
             "model process. Re-establish the work from the evidence below.",
         ]
-        for filename, heading in (
-            ("identity.md", "Identity bank"),
-            ("ground.md", "Constitutional ground"),
-        ):
-            path = Path(self.store.home) / filename
-            if not path.exists():
-                continue
-            try:
-                text = path.read_text(encoding="utf-8").strip()
-            except OSError:
-                continue
-            if text:
-                lines.extend(["", f"## {heading}", "", text])
+        if banks:
+            lines.append(
+                "Banks below are constitutional: included whole, never "
+                "truncated, stable between wakes. Experience after the rule is "
+                "ranked and budgeted."
+            )
+        lines.extend(render_banks(banks))
 
         prefix = "\n".join(lines)
         remaining = max(100, token_budget - max(1, len(prefix) // 4))
@@ -256,6 +289,8 @@ class ContextBuilder:
             vista=continuity.vista,
             requested_tokens=token_budget,
             pressure_phase=continuity.pressure_phase,
+            banks=banks,
+            salience=continuity.salience,
         )
 
     def breathe(self, query: str, *, limit: int = 4) -> str:

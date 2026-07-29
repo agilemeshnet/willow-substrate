@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any
 
 from willow.adapters.claude_code import capture_transcript
+from willow.banks import load_banks, scaffold_banks
 from willow.connections import find_connections
 from willow.context import ContextBuilder
+from willow.corpus import import_markdown
 from willow.dreaming import dream
 from willow.engrams import crystallize_retroactive_engrams
 from willow.events import Event
@@ -20,6 +22,7 @@ from willow.foveation import Foveator
 from willow.hooks import handle_claude_hook
 from willow.reflection import meditate, summarize_session
 from willow.research import Citation, ResearchLedger
+from willow.salience import score_events
 from willow.samples import evaluate_temporal_sample, load_temporal_sample
 from willow.store import EventStore
 from willow.vista import VistaBackend, VistaResult
@@ -115,7 +118,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("init", help="Initialize the shared local substrate")
+    init = sub.add_parser("init", help="Initialize the shared local substrate")
+    init.add_argument(
+        "--without-banks",
+        action="store_true",
+        help="Do not scaffold identity and ground bank templates",
+    )
+
+    banks = sub.add_parser(
+        "banks",
+        help="Show the constitutional banks included whole at every boot",
+    )
+    banks.add_argument(
+        "--full",
+        action="store_true",
+        help="Print bank contents rather than a summary",
+    )
+
+    corpus = sub.add_parser(
+        "import",
+        help="Import a Markdown corpus as immutable events",
+    )
+    corpus.add_argument("path", type=Path)
+    corpus.add_argument("--actor", default="corpus")
+    corpus.add_argument("--kind", default="note")
+    corpus.add_argument("--session", default="corpus")
+    corpus.add_argument("--pattern", default="*.md")
+
+    salience = sub.add_parser(
+        "salience",
+        help="Rank active experience by explainable salience signals",
+    )
+    salience.add_argument("query", nargs="?", default="")
+    salience.add_argument("--limit", type=int, default=15)
+    salience.add_argument("--kind")
+    salience.add_argument("--scan", type=int, default=500)
+    salience.add_argument(
+        "--explain",
+        action="store_true",
+        help="Show the contributing signal for each ranked item",
+    )
 
     record = sub.add_parser("record", help="Append a message, action, or observation")
     record.add_argument("text")
@@ -273,6 +315,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     context.add_argument("--without-foveation", action="store_true")
     context.add_argument("--without-vista", action="store_true")
+    context.add_argument(
+        "--without-salience",
+        action="store_true",
+        help="Keep raw retrieval order instead of ranking before truncation",
+    )
 
     boot = sub.add_parser("boot", help="Build stable grounding for a new process")
     boot.add_argument("--agent", default="willow")
@@ -401,16 +448,148 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "init":
+            scaffolded = (
+                () if args.without_banks else scaffold_banks(store.home)
+            )
             result = {
                 "home": str(store.home),
                 "database": str(store.db_path),
                 "events": store.count(),
+                "banks_scaffolded": [str(path) for path in scaffolded],
             }
             if args.json:
                 print(json.dumps(result))
             else:
                 print(f"Willow initialized at {store.home}")
                 print(f"Shared event store: {store.db_path}")
+                for path in scaffolded:
+                    print(f"Bank template written: {path}")
+                if scaffolded:
+                    print(
+                        "Edit the bank templates before first boot; they are "
+                        "included whole and never truncated."
+                    )
+            return 0
+
+        if args.command == "banks":
+            banks = load_banks(store.home)
+            if args.json:
+                print(json.dumps({
+                    "home": str(store.home),
+                    "banks": [
+                        {
+                            "name": bank.name,
+                            "heading": bank.heading,
+                            "path": str(bank.path),
+                            "bytes": bank.size_bytes,
+                            "estimated_tokens": bank.estimated_tokens,
+                            "text": bank.text if args.full else None,
+                        }
+                        for bank in banks
+                    ],
+                    "total_estimated_tokens": sum(
+                        bank.estimated_tokens for bank in banks
+                    ),
+                }))
+                return 0
+            if not banks:
+                print(
+                    "No constitutional banks found. Write identity.md and "
+                    f"ground.md in {store.home}, or run 'willow init'."
+                )
+                return 0
+            for bank in banks:
+                print(
+                    f"{bank.heading}: {bank.path} "
+                    f"({bank.size_bytes} bytes, ~{bank.estimated_tokens} tokens)"
+                )
+                if args.full:
+                    print()
+                    print(bank.text)
+                    print()
+            print(
+                f"Floor: ~{sum(bank.estimated_tokens for bank in banks)} tokens "
+                "included whole on every boot."
+            )
+            return 0
+
+        if args.command == "import":
+            report = import_markdown(
+                store,
+                args.path,
+                actor=args.actor,
+                kind=args.kind,
+                session_id=args.session,
+                pattern=args.pattern,
+            )
+            if args.json:
+                print(json.dumps({
+                    "root": str(report.root),
+                    "created": [item.relative_path for item in report.created],
+                    "superseded": [
+                        item.relative_path for item in report.superseded
+                    ],
+                    "unchanged": [
+                        item.relative_path for item in report.unchanged
+                    ],
+                    "skipped": [
+                        {"path": str(path), "reason": reason}
+                        for path, reason in report.skipped
+                    ],
+                }))
+                return 0
+            for item in report.created:
+                print(f"created    {item.relative_path}  {item.event.short_id}")
+            for item in report.superseded:
+                print(f"updated    {item.relative_path}  {item.event.short_id}")
+            for path, reason in report.skipped:
+                print(f"skipped    {path}  ({reason})")
+            print(report.summary())
+            return 0
+
+        if args.command == "salience":
+            events = store.events(
+                limit=args.scan,
+                kind=args.kind,
+                active_only=True,
+            )
+            scores = score_events(events, query=args.query)
+            ranked = sorted(
+                events,
+                key=lambda event: -scores[event.id].total,
+            )[: args.limit]
+            if args.json:
+                print(json.dumps({
+                    "query": args.query,
+                    "scanned": len(events),
+                    "ranked": [
+                        {
+                            "event": _event_dict(event),
+                            "score": round(scores[event.id].total, 6),
+                            "signals": [
+                                {
+                                    "name": signal.name,
+                                    "value": round(signal.value, 6),
+                                    "detail": signal.detail,
+                                }
+                                for signal in scores[event.id].signals
+                            ],
+                        }
+                        for event in ranked
+                    ],
+                }))
+                return 0
+            if not ranked:
+                print("No active experience to rank.")
+                return 0
+            for event in ranked:
+                score = scores[event.id]
+                compact = " ".join(event.content.split())
+                if len(compact) > 88:
+                    compact = compact[:85] + "..."
+                print(f"{score.total:6.2f}  {event.short_id}  {compact}")
+                if args.explain:
+                    print(f"        {score.explain()}")
             return 0
 
         if args.command == "record":
@@ -692,6 +871,7 @@ def main(argv: list[str] | None = None) -> int:
                 mode=args.mode,
                 use_foveation=not args.without_foveation,
                 use_vista=not args.without_vista,
+                use_salience=not args.without_salience,
             )
             if args.json:
                 print(json.dumps({
@@ -701,6 +881,10 @@ def main(argv: list[str] | None = None) -> int:
                     "event_ids": packet.event_ids,
                     "context": packet.markdown,
                     "vista": _vista_dict(packet.vista),
+                    "salience": {
+                        event_id: round(score.total, 6)
+                        for event_id, score in packet.salience.items()
+                    },
                 }))
             else:
                 print(packet.markdown)
@@ -719,6 +903,14 @@ def main(argv: list[str] | None = None) -> int:
                     "event_ids": packet.event_ids,
                     "context": packet.markdown,
                     "vista": _vista_dict(packet.vista),
+                    "banks": [
+                        {
+                            "name": bank.name,
+                            "path": str(bank.path),
+                            "estimated_tokens": bank.estimated_tokens,
+                        }
+                        for bank in packet.banks
+                    ],
                 }))
             else:
                 print(packet.markdown)
@@ -998,12 +1190,16 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "status":
             valid, count, error = store.verify()
+            banks = load_banks(store.home)
+            bank_tokens = sum(bank.estimated_tokens for bank in banks)
             result = {
                 "home": str(store.home),
                 "database": str(store.db_path),
                 "events": count,
                 "chain_valid": valid,
                 "chain_error": error,
+                "banks": [bank.name for bank in banks],
+                "bank_estimated_tokens": bank_tokens,
             }
             if args.json:
                 print(json.dumps(result))
@@ -1012,6 +1208,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Database: {store.db_path}")
                 print(f"Events: {count}")
                 print(f"Chain: {'valid' if valid else error}")
+                if banks:
+                    print(
+                        f"Banks: {', '.join(bank.name for bank in banks)} "
+                        f"(~{bank_tokens} tokens, included whole at boot)"
+                    )
+                else:
+                    print("Banks: none (boot has no constitutional floor)")
             return 0
 
     except (KeyError, ValueError, OSError, sqlite3.Error) as exc:
