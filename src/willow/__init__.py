@@ -14,6 +14,16 @@ from willow.samples import (
     load_temporal_sample,
 )
 from willow.store import EventStore
+from willow.vista import (
+    ReferenceBeam,
+    RelationalBackend,
+    Vista,
+    VistaBackend,
+    VistaEvidence,
+    VistaMatch,
+    VistaResult,
+    Waypoint,
+)
 
 __all__ = [
     "Citation",
@@ -31,11 +41,19 @@ __all__ = [
     "Foveator",
     "ResearchLedger",
     "ResearchState",
+    "ReferenceBeam",
+    "RelationalBackend",
     "SampleEvaluation",
     "SampleLoadReport",
+    "Vista",
+    "VistaBackend",
+    "VistaEvidence",
+    "VistaMatch",
+    "VistaResult",
+    "Waypoint",
     "evaluate_temporal_sample",
     "find_connections",
     "load_temporal_sample",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
