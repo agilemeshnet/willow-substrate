@@ -341,6 +341,7 @@ class VistaProjection:
     event_waypoints: dict[str, dict[str, float]]
     waypoints: dict[str, Waypoint]
     vistas: tuple[Vista, ...]
+    truncated: bool = False
 
 
 class RelationalBackend(Protocol):
@@ -368,6 +369,7 @@ class VistaBackend:
         cluster_threshold: float = 0.30,
         half_life_days: float = 60.0,
         max_beams: int = 8,
+        wave_damping: float = 0.5,
     ):
         if max_events < 1:
             raise ValueError("max_events must be positive")
@@ -375,23 +377,32 @@ class VistaBackend:
             raise ValueError("cluster_threshold must be between zero and one")
         if half_life_days <= 0:
             raise ValueError("half_life_days must be positive")
+        if not 0.0 <= wave_damping <= 1.0:
+            raise ValueError("wave_damping must be between zero and one")
         self.store = store
         self.max_events = max_events
         self.cluster_threshold = cluster_threshold
         self.half_life_days = half_life_days
         self.max_beams = max_beams
+        self.wave_damping = wave_damping
         self._snapshot_key: tuple[str, ...] = ()
         self._projection: VistaProjection | None = None
 
     def project(self) -> VistaProjection:
         events = self.store.events(
-            limit=self.max_events,
+            limit=self.max_events + 1,
             active_only=True,
             include_expired=False,
             ascending=False,
         )
+        truncated = len(events) > self.max_events
+        if truncated:
+            events = events[: self.max_events]
         events.reverse()
-        snapshot_key = tuple(event.id for event in events)
+        snapshot_key = (
+            f"truncated:{truncated}",
+            *(event.id for event in events),
+        )
         if self._projection is not None and snapshot_key == self._snapshot_key:
             return self._projection
 
@@ -483,6 +494,7 @@ class VistaBackend:
             event_waypoints=event_waypoints,
             waypoints=waypoints,
             vistas=tuple(vistas),
+            truncated=truncated,
         )
         self._snapshot_key = snapshot_key
         self._projection = projection
@@ -627,6 +639,7 @@ class VistaBackend:
             projection,
             wave_seeds,
             hops=max(0, wave_hops),
+            damping=self.wave_damping,
         )
         non_seed_wave = {
             event_id: score
@@ -674,7 +687,7 @@ class VistaBackend:
         evidence.sort(key=lambda item: (-item.score, -item.event.seq))
         selected_evidence = tuple(evidence[: max(0, limit)])
 
-        trace = (
+        trace = [
             f"Projected {len(projection.events)} active events into "
             f"{len(projection.vistas)} soft Vistas.",
             f"Resolved {len(beams)} relational reference beams from "
@@ -682,15 +695,22 @@ class VistaBackend:
             "Ranked Vistas using semantic/Gaussian proximity and "
             "waypoint-member overlap; timestamps did not enter geometry.",
             f"Propagated a degree-normalised, conductance-weighted Wave "
-            f"for {max(0, wave_hops)} hops from {len(wave_seeds)} seeds.",
-        )
+            f"for {max(0, wave_hops)} hops with damping "
+            f"{self.wave_damping:.2f} from {len(wave_seeds)} seeds.",
+        ]
+        if projection.truncated:
+            trace.insert(
+                1,
+                f"Projection reached the {self.max_events}-event reference "
+                "backend cap; older active events were not evaluated.",
+            )
         return VistaResult(
             query=query,
             seed_event_ids=seeds,
             reference_beams=beams,
             matches=selected_matches,
             evidence=selected_evidence,
-            trace=trace,
+            trace=tuple(trace),
         )
 
     def _event_features(self, event: Event) -> Counter[str]:
@@ -890,7 +910,7 @@ class VistaBackend:
                 {},
             ).items():
                 waypoint = projection.waypoints[name]
-                specificity = waypoint.mass / math.sqrt(max(1, waypoint.degree))
+                specificity = waypoint.mass / max(1, waypoint.degree)
                 scores[name] += prominence * specificity
                 sources[name].add("focus")
 

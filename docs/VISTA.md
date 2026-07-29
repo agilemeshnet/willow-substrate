@@ -116,7 +116,9 @@ Each event carries waypoint edges with prominence. Each waypoint has:
 - conductance: the same mass used by Wave.
 
 Generic high-degree landmarks are prevented from broadcasting at full strength
-through degree normalisation.
+through degree normalisation. The same normalisation is applied when focused
+events become reference beams, so a ubiquitous actor or project cannot
+outweigh a specific idea-shape merely by appearing often.
 
 ### Reference-beam intersection
 
@@ -175,7 +177,13 @@ Inspect the field directly:
 willow vista "trust and purpose-limited disclosure"
 willow vista --seed-event evt-...
 willow --json vista "collective pressure" --wave-hops 4
+willow vista "collective pressure" --wave-damping 0.35 --max-events 5000
 ```
+
+`--max-events` sets the dependency-free projection ceiling and
+`--wave-damping` controls the fraction of activation restarted at the seeds on
+each hop. The same values can be set when constructing `VistaBackend` for an
+integrated CWB deployment.
 
 Add Vista/Wave to connection finding:
 
@@ -206,7 +214,9 @@ willow foveate "query" --without-vista
 ## Current limits
 
 - The reference projection is rebuilt in memory for each short-lived CLI
-  process and is capped at the most recent 2,000 active events.
+  process and is capped at the most recent 2,000 active events by default.
+  When that cap is reached, the decision trace says that older active events
+  were not evaluated.
 - Sparse lexical-semantic features are less capable than a strong embedding
   model at recognising paraphrases that lack explicit relational metadata.
 - Connected-component clustering is a portable baseline, not HDBSCAN.

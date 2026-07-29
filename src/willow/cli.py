@@ -295,6 +295,8 @@ def build_parser() -> argparse.ArgumentParser:
     vista.add_argument("--seed-event", action="append", default=[])
     vista.add_argument("--limit", type=int, default=8)
     vista.add_argument("--wave-hops", type=int, default=4)
+    vista.add_argument("--wave-damping", type=float, default=0.5)
+    vista.add_argument("--max-events", type=int, default=2000)
 
     meditation = sub.add_parser(
         "meditate",
@@ -772,7 +774,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "vista":
-            result = VistaBackend(store).query(
+            result = VistaBackend(
+                store,
+                max_events=args.max_events,
+                wave_damping=args.wave_damping,
+            ).query(
                 args.query,
                 seed_event_ids=args.seed_event,
                 limit=args.limit,

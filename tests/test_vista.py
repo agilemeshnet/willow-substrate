@@ -219,6 +219,55 @@ class VistaTests(unittest.TestCase):
             match.relational_waypoints,
         )
 
+    def test_projection_cap_is_visible_in_the_decision_trace(self):
+        for index in range(3):
+            self.store.append(
+                f"Observation {index} about a distinct subject.",
+                metadata={"topics": [f"subject-{index}"]},
+            )
+
+        backend = VistaBackend(self.store, max_events=2)
+        projection = backend.project()
+        result = backend.query("subject 2")
+
+        self.assertEqual(len(projection.events), 2)
+        self.assertTrue(projection.truncated)
+        self.assertTrue(
+            any("2-event reference backend cap" in line for line in result.trace)
+        )
+
+    def test_high_degree_actor_cannot_outweigh_a_specific_shape_beam(self):
+        for index in range(224):
+            self.store.append(
+                f"Independent ledger observation {index}.",
+                actor="peter",
+            )
+        seed = self.store.append(
+            "The membership of a flock changes while its identity persists.",
+            actor="peter",
+            metadata={"idea_shape": ["identity:relational"]},
+        )
+
+        result = VistaBackend(self.store).query(
+            seed.content,
+            seed_event_ids=(seed.id,),
+        )
+        weights = {beam.name: beam.weight for beam in result.reference_beams}
+
+        self.assertIn("actor:peter", weights)
+        self.assertGreater(
+            weights["shape:identity:relational"],
+            weights["actor:peter"],
+        )
+
+    def test_wave_damping_is_configurable_and_validated(self):
+        backend = VistaBackend(self.store, wave_damping=0.25)
+        self.assertEqual(backend.wave_damping, 0.25)
+        with self.assertRaises(ValueError):
+            VistaBackend(self.store, wave_damping=-0.01)
+        with self.assertRaises(ValueError):
+            VistaBackend(self.store, wave_damping=1.01)
+
 
 if __name__ == "__main__":
     unittest.main()
