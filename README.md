@@ -1,9 +1,29 @@
 # Willow
 
-**Start in one terminal. Continue in another. Change the model. Willow remembers the work.**
+**Local scaffold plus harness that lets small models solve hard problems by first choosing the right mathematical geometry.**
 
 Willow is a model-independent continuity layer for people and AI systems working
 together on projects that last months or years.
+
+## Why this shape
+
+Rather than pay for the largest cloud model, Willow lets a small local model
+perform through two components working alongside it:
+
+- **Scaffold**: the searchable geometry of the work. Provenance-bearing events,
+  waypoints, Vista clustering, hash-chained history.
+- **Harness**: how compute moves through that geometry. Foveation, Wave recall,
+  hook-driven engrams, meditation and dream cycles.
+
+An independent field-vocabulary description of the same triad recently appeared
+at [*Why Smarter AI Needs the Right Scaffold (plus Harness)*](https://www.youtube.com/watch?v=KoMoW2DE55M)
+(Discover AI, 2026-08-05). Convergent invention on the scaffold-plus-harness
+shape from different starting points is a useful signal that the shape is real,
+not idiosyncratic.
+
+## What that gets you
+
+**Start in one terminal. Continue in another. Change the model. Willow remembers the work.**
 
 This repository is the clean reference bundle distilled from the larger Willow
 system. It begins with the smallest experience worth reproducing:
