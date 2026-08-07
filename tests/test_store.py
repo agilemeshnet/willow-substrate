@@ -89,6 +89,43 @@ class EventStoreTests(unittest.TestCase):
                 derived_from=["evt-missing"],
             )
 
+    def test_fts_suppression_is_detected_by_verify(self):
+        """events_fts has no immutability trigger. A DELETE against it leaves
+        the ledger honest but the search index censored, and the two live in
+        different tables. verify() has to reconcile the two so silent
+        unfindability cannot pass as a green integrity check."""
+        first = self.store.append("headache begins", session_id="s")
+        second = self.store.append("migraine worsens", session_id="s")
+        third = self.store.append("nausea joins in", session_id="s")
+
+        # Deleting from events_fts requires no privileged access; there is no
+        # trigger to bypass. This is the exact attack the reviewer described.
+        conn = sqlite3.connect(self.store.db_path)
+        try:
+            conn.execute(
+                "DELETE FROM events_fts WHERE event_id = ?", (second.id,)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Search silently drops the middle event; that is the harm surface.
+        search_ids = {hit.event.id for hit in self.store.search("migraine", limit=10)}
+        self.assertNotIn(
+            second.id, search_ids,
+            "the audit's scenario: the deleted event is now unfindable",
+        )
+
+        # And verify() must call it out.
+        valid, count, error = self.store.verify()
+        self.assertFalse(
+            valid,
+            "verify() must catch FTS suppression; without this the ledger "
+            "reads honest while retrieval is censored",
+        )
+        self.assertEqual(count, 3, "count reflects the actual ledger rows")
+        self.assertIn("search index", (error or "").lower())
+
     def test_tail_truncation_is_detected_via_anchored_head(self):
         """A DELETE of the highest-seq row leaves a shorter but self-consistent
         chain that a plain hash walk cannot flag. The anchored-head sentinels
