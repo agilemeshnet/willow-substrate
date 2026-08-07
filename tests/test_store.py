@@ -89,6 +89,44 @@ class EventStoreTests(unittest.TestCase):
                 derived_from=["evt-missing"],
             )
 
+    def test_append_rejects_non_iso_timestamp(self):
+        """append() must reject caller-supplied timestamps that are not
+        ISO-8601 parseable. The timestamp gets hashed into the event payload
+        and the sample suite's temporal claims rest on the field; nothing
+        else validates it."""
+        with self.assertRaises(ValueError) as ctx:
+            self.store.append("a", session_id="s", timestamp="banana")
+        self.assertIn("iso-8601", str(ctx.exception).lower())
+
+        # Empty string is not a valid timestamp either.
+        with self.assertRaises(ValueError):
+            self.store.append("b", session_id="s", timestamp="   ")
+
+    def test_append_accepts_valid_iso_timestamps(self):
+        """Legitimate ISO-8601 forms (with and without timezone, with Z, with
+        offset) must still succeed and preserve the exact string that was
+        provided so its hash is not disturbed."""
+        for ts in [
+            "2026-08-07T15:30:00+00:00",
+            "2026-08-07T15:30:00Z",
+            "2026-08-07T15:30:00",
+            "2026-08-07 15:30:00",
+        ]:
+            event = self.store.append(
+                f"observation at {ts}", session_id="s", timestamp=ts
+            )
+            self.assertEqual(
+                event.timestamp, ts,
+                "validator must preserve the caller's exact string",
+            )
+
+    def test_append_still_auto_generates_when_no_timestamp_given(self):
+        """The unchanged code path: timestamp=None still produces UTC now."""
+        event = self.store.append("no timestamp given", session_id="s")
+        # Round-trip parseable; presence of tz or 'T' is what matters here.
+        from datetime import datetime as _dt
+        _dt.fromisoformat(event.timestamp)  # must not raise
+
     def test_fts_suppression_is_detected_by_verify(self):
         """events_fts has no immutability trigger. A DELETE against it leaves
         the ledger honest but the search index censored, and the two live in
