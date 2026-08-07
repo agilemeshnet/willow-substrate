@@ -103,6 +103,35 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _validated_timestamp(value: str) -> str:
+    """Reject caller-supplied timestamps that are not ISO-8601 parseable.
+
+    The timestamp is hashed into every event's payload and the sample suite's
+    pass criteria include temporal spans; those temporal claims are only as
+    trustworthy as the field they rest on. Without this check, append() will
+    accept and store 'banana' and hash it into the chain.
+
+    The value that parses cleanly is returned unchanged so nothing about the
+    hash of a legitimate timestamp is disturbed.
+    """
+    if not isinstance(value, str):
+        raise TypeError(
+            f"timestamp must be a string in ISO-8601 form; got {type(value).__name__}"
+        )
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("timestamp must not be empty")
+    try:
+        # Python 3.11+ fromisoformat accepts a wide range of ISO-8601 forms
+        # including trailing 'Z' and offsets; that is exactly what we want.
+        datetime.fromisoformat(stripped)
+    except ValueError as exc:
+        raise ValueError(
+            f"timestamp is not ISO-8601 parseable: {value!r} ({exc})"
+        ) from exc
+    return value
+
+
 class EventStore:
     """Append, verify, and retrieve immutable Willow events."""
 
@@ -183,7 +212,7 @@ class EventStore:
         metadata_value = dict(metadata or {})
         derived_value = tuple(dict.fromkeys(derived_from or ()))
         event_id_value = event_id or f"evt-{uuid.uuid4().hex}"
-        timestamp_value = timestamp or _utc_now()
+        timestamp_value = _validated_timestamp(timestamp) if timestamp else _utc_now()
 
         conn = self._connect()
         try:
