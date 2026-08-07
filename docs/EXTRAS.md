@@ -50,9 +50,25 @@ store; repeat calls do not re-embed. A corpus that grew by ten events only
 pays for those ten. Model mismatch invalidates the cache so different
 embedding dimensions never collide.
 
-Concrete backend module: `willow.backends.vista_voyage.VoyageVistaBackend`
-(coming in the next foundation follow-up PR; ports the internal Willow
-`thought-buckets/wave.py` + `mint_buckets.py` + `voyage_embed.py` patterns).
+Concrete backend module: `willow.backends.vista_voyage.VoyageVistaBackend`.
+Ports the internal Willow `thought-buckets/wave.py` + `mint_buckets.py` +
+`voyage_embed.py` patterns. Produces the same `VistaResult` shape as the
+dependency-free `VistaBackend` so downstream readers do not care which
+backend produced the surround.
+
+Minimal example (mock embedder in the test suite; real usage sets
+`VOYAGE_API_KEY`):
+
+```python
+from willow.store import EventStore
+from willow.backends.vista_voyage import VoyageVistaBackend
+
+store = EventStore()
+backend = VoyageVistaBackend(store)  # reads VOYAGE_API_KEY from env
+result = backend.query("recurrent connectome motifs", limit=8)
+for item in result.evidence:
+    print(item.event.short_id, item.score, item.channels)
+```
 
 ### `[neo4j]` — AuraDB graph projection (coming)
 
