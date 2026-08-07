@@ -482,10 +482,21 @@ class EventStore:
         ]
 
     def verify(self) -> tuple[bool, int, str | None]:
-        """Verify the global hash chain from genesis to the latest event."""
+        """Verify the global hash chain from genesis to the latest event.
+
+        Also reconcile the events_fts index against the events table so a
+        silent deletion of a search index row cannot leave retrieval censored
+        while the ledger itself still reads honest. Integrity and retrieval
+        are stored in different tables; verify() has to check both.
+        """
 
         with self._session() as conn:
             rows = conn.execute("SELECT * FROM events ORDER BY seq ASC").fetchall()
+            event_ids = {str(row["id"]) for row in rows}
+            fts_ids = {
+                str(row["event_id"])
+                for row in conn.execute("SELECT event_id FROM events_fts")
+            }
 
         prev_hash = GENESIS_HASH
         for index, row in enumerate(rows):
@@ -510,6 +521,19 @@ class EventStore:
             if event.hash != expected:
                 return False, len(rows), f"event hash mismatch at sequence {event.seq}"
             prev_hash = event.hash
+
+        missing_from_fts = event_ids - fts_ids
+        if missing_from_fts:
+            return False, len(rows), (
+                f"search index missing {len(missing_from_fts)} event(s) present "
+                f"in the ledger; example: {sorted(missing_from_fts)[0]}"
+            )
+        orphan_fts = fts_ids - event_ids
+        if orphan_fts:
+            return False, len(rows), (
+                f"search index has {len(orphan_fts)} row(s) without a matching "
+                f"ledger event; example: {sorted(orphan_fts)[0]}"
+            )
 
         return True, len(rows), None
 
