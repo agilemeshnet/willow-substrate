@@ -31,6 +31,43 @@ classifiers = [
 ]
 dependencies = []
 
+# Extras that light up richer memory-and-recall backends from the full Willow
+# substrate. `pip install willow-substrate` stays zero-dep and runs the
+# continuity demo. `pip install "willow-substrate[full]"` pulls the whole
+# recall stack. Backends check their own imports at construction time and
+# raise ImportError with a specific extras-install hint when not present.
+[project.optional-dependencies]
+# Vista + Wave over dense semantic embeddings (Voyage-4 by default, HDBSCAN
+# clustering, numpy vector cache). This is the primary recall power-up:
+# substitutes for the dependency-free VistaBackend via the RelationalBackend
+# protocol in src/willow/vista.py. Turns TF-IDF-like sparse retrieval into
+# dense semantic recall over the full corpus.
+vista = [
+    "numpy>=1.24",
+    "scikit-learn>=1.3",
+    "hdbscan>=0.8.33",
+    "requests>=2.31",
+]
+# Neo4j / AuraDB adapter for optional graph projection of the event ledger.
+# Used to mirror the local store into a shared Brain that federated agents
+# and audits can read.
+neo4j = [
+    "neo4j>=5.14",
+    "python-dotenv>=1.0",
+]
+# The whole memory-and-recall stack at once. Convenient for full-fidelity
+# reproduction of how the internal Willow runs. Additional adapters (Cognee,
+# Fable specialist, hatch drain, federation) will land as their own extras
+# as they are ported from the internal substrate.
+full = [
+    "numpy>=1.24",
+    "scikit-learn>=1.3",
+    "hdbscan>=0.8.33",
+    "requests>=2.31",
+    "neo4j>=5.14",
+    "python-dotenv>=1.0",
+]
+
 [project.scripts]
 willow = "willow.cli:main"
 
