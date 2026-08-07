@@ -15,11 +15,24 @@ perform through two components working alongside it:
 - **Harness**: how compute moves through that geometry. Foveation, Wave recall,
   hook-driven engrams, meditation and dream cycles.
 
-An independent field-vocabulary description of the same triad recently appeared
-at [*Why Smarter AI Needs the Right Scaffold (plus Harness)*](https://www.youtube.com/watch?v=KoMoW2DE55M)
-(Discover AI, 2026-08-05). Convergent invention on the scaffold-plus-harness
-shape from different starting points is a useful signal that the shape is real,
-not idiosyncratic.
+Two independent lines of convergent invention have appeared on this shape. The
+accessible field-vocabulary version is [*Why Smarter AI Needs the Right Scaffold
+(plus Harness)*](https://www.youtube.com/watch?v=KoMoW2DE55M) (Discover AI,
+2026-08-05). The empirical academic spine is [*Argus: A General-Purpose Agentic
+Runtime for Long-Horizon Reasoning*](https://arxiv.org/abs/2608.05144)
+(Microsoft plus several Chinese universities, August 2026), which builds the
+same architecture (Manager / Planner / Engineer / Reviewer role split,
+persistent campaign state, verification-gated fixed-model self-evolution) and
+reports 78% accuracy on SWE-Bench Pro versus 59% for Direct Copilot, six-of-six
+autonomous paper pipelines completing across 640 campaign-hours, and nine
+Kaggle medals.
+
+Argus grounds the intuition in Blackwell (1953): the full process record
+dominates the final artifact for every downstream decision problem
+(Proposition 1). Willow's engram + bookend + hatch architecture is one instance
+of that principle in code. Convergent invention on the same shape from
+different starting points, both accessible and academic, is a useful signal
+that the shape is real, not idiosyncratic.
 
 ## What that gets you
 
