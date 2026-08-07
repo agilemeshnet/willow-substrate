@@ -149,6 +149,22 @@ class EventStore:
                     "VALUES ('schema_version', ?)",
                     (str(SCHEMA_VERSION),),
                 )
+                # Anchored-head sentinels: the tail of the chain is only as
+                # trustworthy as an independent record of where it is. Without
+                # these, a bare DELETE of the highest-seq row leaves a shorter
+                # but self-consistent chain that verify() cannot distinguish
+                # from an honest history. Storing head_hash and event_count in
+                # willow_meta forces any tail forgery to also forge these two
+                # values consistently.
+                conn.execute(
+                    "INSERT OR IGNORE INTO willow_meta(key, value) "
+                    "VALUES ('head_hash', ?)",
+                    (GENESIS_HASH,),
+                )
+                conn.execute(
+                    "INSERT OR IGNORE INTO willow_meta(key, value) "
+                    "VALUES ('event_count', '0')",
+                )
                 conn.commit()
                 return
             except sqlite3.OperationalError as exc:
@@ -248,6 +264,17 @@ class EventStore:
                 ),
             )
             seq = int(cursor.lastrowid)
+            # Advance the anchored-head sentinels in the same transaction so a
+            # crash between the INSERT and the UPDATE cannot leave a chain out
+            # of step with its declared tail. See _initialize for the rationale.
+            conn.execute(
+                "UPDATE willow_meta SET value = ? WHERE key = 'head_hash'",
+                (event_hash,),
+            )
+            conn.execute(
+                "UPDATE willow_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) "
+                "WHERE key = 'event_count'"
+            )
             conn.commit()
         except Exception:
             conn.rollback()
@@ -484,10 +511,17 @@ class EventStore:
     def verify(self) -> tuple[bool, int, str | None]:
         """Verify the global hash chain from genesis to the latest event.
 
-        Also reconcile the events_fts index against the events table so a
-        silent deletion of a search index row cannot leave retrieval censored
-        while the ledger itself still reads honest. Integrity and retrieval
-        are stored in different tables; verify() has to check both.
+        Beyond the hash walk, two reconciliations close known audit gaps:
+
+        - Tail: reconcile against the anchored-head sentinels stored in
+          willow_meta (head_hash, event_count). Without them, a bare DELETE
+          of the highest-seq row leaves a shorter but self-consistent chain
+          that a hash walk alone cannot flag.
+        - Retrieval: reconcile events_fts.event_id as a set against events.id.
+          Without this, a silent deletion of a search index row leaves
+          retrieval censored while the ledger itself still reads honest.
+          Integrity and retrieval live in different tables, so both are
+          checked here.
         """
 
         with self._session() as conn:
@@ -496,6 +530,13 @@ class EventStore:
             fts_ids = {
                 str(row["event_id"])
                 for row in conn.execute("SELECT event_id FROM events_fts")
+            }
+            meta = {
+                str(row["key"]): str(row["value"])
+                for row in conn.execute(
+                    "SELECT key, value FROM willow_meta "
+                    "WHERE key IN ('head_hash', 'event_count')"
+                )
             }
 
         prev_hash = GENESIS_HASH
@@ -521,6 +562,25 @@ class EventStore:
             if event.hash != expected:
                 return False, len(rows), f"event hash mismatch at sequence {event.seq}"
             prev_hash = event.hash
+
+        expected_head = meta.get("head_hash", GENESIS_HASH)
+        expected_count_raw = meta.get("event_count", "0")
+        try:
+            expected_count = int(expected_count_raw)
+        except ValueError:
+            return False, len(rows), (
+                f"anchored event_count is not an integer: {expected_count_raw!r}"
+            )
+
+        if len(rows) != expected_count:
+            return False, len(rows), (
+                f"tail length mismatch: chain has {len(rows)} events "
+                f"but anchored event_count is {expected_count}"
+            )
+        if prev_hash != expected_head:
+            return False, len(rows), (
+                "tail hash mismatch: chain tail does not match anchored head_hash"
+            )
 
         missing_from_fts = event_ids - fts_ids
         if missing_from_fts:

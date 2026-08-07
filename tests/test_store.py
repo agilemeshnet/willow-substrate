@@ -126,6 +126,61 @@ class EventStoreTests(unittest.TestCase):
         self.assertEqual(count, 3, "count reflects the actual ledger rows")
         self.assertIn("search index", (error or "").lower())
 
+    def test_tail_truncation_is_detected_via_anchored_head(self):
+        """A DELETE of the highest-seq row leaves a shorter but self-consistent
+        chain that a plain hash walk cannot flag. The anchored-head sentinels
+        in willow_meta (head_hash, event_count) close that gap."""
+        self.store.append("first", session_id="s")
+        self.store.append("second", session_id="s")
+        third = self.store.append("third", session_id="s")
+
+        # Drop the immutability trigger to simulate an attacker with local
+        # write access (the same threat model the trigger targets).
+        conn = sqlite3.connect(self.store.db_path)
+        try:
+            conn.execute("DROP TRIGGER events_are_immutable_delete")
+            conn.execute("DELETE FROM events WHERE id = ?", (third.id,))
+            conn.commit()
+        finally:
+            conn.close()
+
+        valid, count, error = self.store.verify()
+        self.assertFalse(
+            valid, "tail truncation must be detected by verify()"
+        )
+        self.assertEqual(count, 2, "verify reports the actual remaining rows")
+        self.assertIn("tail", (error or "").lower())
+
+    def test_anchored_head_tracks_appends(self):
+        """head_hash and event_count in willow_meta advance on every append."""
+        conn = sqlite3.connect(self.store.db_path)
+        try:
+            row = conn.execute(
+                "SELECT value FROM willow_meta WHERE key = 'event_count'"
+            ).fetchone()
+            self.assertEqual(row[0], "0")
+        finally:
+            conn.close()
+
+        first = self.store.append("a", session_id="s")
+        second = self.store.append("b", session_id="s")
+
+        conn = sqlite3.connect(self.store.db_path)
+        try:
+            meta = {
+                r[0]: r[1]
+                for r in conn.execute("SELECT key, value FROM willow_meta")
+            }
+        finally:
+            conn.close()
+
+        self.assertEqual(meta["event_count"], "2")
+        self.assertEqual(meta["head_hash"], second.hash)
+        # Verify still passes for the honest history.
+        valid, count, error = self.store.verify()
+        self.assertTrue(valid, error)
+        self.assertEqual(count, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

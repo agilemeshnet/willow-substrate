@@ -15,24 +15,23 @@ perform through two components working alongside it:
 - **Harness**: how compute moves through that geometry. Foveation, Wave recall,
   hook-driven engrams, meditation and dream cycles.
 
-Two independent lines of convergent invention have appeared on this shape. The
-accessible field-vocabulary version is [*Why Smarter AI Needs the Right Scaffold
+Two independent lines of work point in the same broader design direction. The
+accessible field-vocabulary framing is [*Why Smarter AI Needs the Right Scaffold
 (plus Harness)*](https://www.youtube.com/watch?v=KoMoW2DE55M) (Discover AI,
-2026-08-05). The empirical academic spine is [*Argus: A General-Purpose Agentic
+2026-08-05). The recent academic instance is [*Argus: A General-Purpose Agentic
 Runtime for Long-Horizon Reasoning*](https://arxiv.org/abs/2608.05144)
-(Microsoft plus several Chinese universities, August 2026), which builds the
-same architecture (Manager / Planner / Engineer / Reviewer role split,
-persistent campaign state, verification-gated fixed-model self-evolution) and
-reports 78% accuracy on SWE-Bench Pro versus 59% for Direct Copilot, six-of-six
-autonomous paper pipelines completing across 640 campaign-hours, and nine
-Kaggle medals.
+(Microsoft plus several Chinese universities, August 2026), which builds a
+persistent, verification-gated runtime that improves through retained state
+rather than through weight updates.
 
-Argus grounds the intuition in Blackwell (1953): the full process record
-dominates the final artifact for every downstream decision problem
-(Proposition 1). Willow's engram + bookend + hatch architecture is one instance
-of that principle in code. Convergent invention on the same shape from
-different starting points, both accessible and academic, is a useful signal
-that the shape is real, not idiosyncratic.
+Argus grounds that design in Blackwell (1953, Proposition 1): the full process
+record dominates the final artifact for every downstream decision problem.
+This bundle takes the same position at a smaller scope: an append-only event
+ledger with corrections that supersede rather than overwrite, a bounded
+reviewed checkpoint, and provenance on every retrieved item. Argus's
+benchmarks are not a validation of this bundle; they are independent evidence
+that persistent-state, verification-gated runtimes are a live design
+direction, not idiosyncratic.
 
 ## What that gets you
 
