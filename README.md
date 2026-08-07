@@ -54,10 +54,22 @@ archaeology. This repository is the installable contract.
 Alpha. The local continuity loop, Claude Code lifecycle adapter, research
 ledger, Fact TTL state machine, stereo word/idea-shape connection finder, and
 an executable eight-week temporal evaluation sample work with no required
-third-party dependencies. A dependency-free Vista/Wave backend now restores
-the relational neighbourhood around foveated attention. AuraDB, richer MRL and
-high-dimensional Vista adapters, additional model-provider adapters, and
-generative meditation remain integration work in
+third-party dependencies. A dependency-free Vista/Wave backend restores the
+relational neighbourhood around foveated attention.
+
+Layered fidelity is now the shape. `pip install willow-substrate` stays
+zero-dep. Optional extras add richer memory-and-recall backends ported from
+the full internal Willow substrate:
+
+```bash
+pip install "willow-substrate[vista]"      # dense-embedding Vista + Wave recall
+pip install "willow-substrate[neo4j]"      # optional AuraDB graph projection
+pip install "willow-substrate[full]"       # the whole memory-and-recall stack
+```
+
+See [docs/EXTRAS.md](docs/EXTRAS.md) for the design and the currently-shipped
+backends. AuraDB, richer MRL and high-dimensional Vista adapters, additional
+model-provider adapters, and generative meditation remain integration work in
 [docs/MIGRATION.md](docs/MIGRATION.md).
 
 ## Quick start
