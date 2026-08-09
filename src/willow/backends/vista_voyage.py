@@ -13,7 +13,7 @@ evidence contract.
 
 Install with:
 
-    pip install "willow-substrate[vista]"
+    pip install -e ".[vista]"
 
 Usage:
 

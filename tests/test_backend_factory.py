@@ -1,6 +1,6 @@
 """Tests for the backend factory that wires [vista] into the defaults.
 
-The factory exists because ``pip install "willow-substrate[vista]"`` alone
+The factory exists because ``pip install -e ".[vista]"`` alone
 did not activate the dense backend: the CLI, context composer, and
 connections default construction sites all created ``VistaBackend``
 directly. This test suite pins the factory's resolution rules so a

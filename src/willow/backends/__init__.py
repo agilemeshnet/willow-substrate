@@ -7,8 +7,8 @@ its own third-party dependencies at module scope and lets the ImportError
 surface with a clear message if the extra is not installed.
 
 The intent is layered fidelity: `pip install willow-substrate` gives the
-minimal continuity demo; `pip install "willow-substrate[vista]"` lights up
-dense semantic recall; `pip install "willow-substrate[full]"` pulls the whole
+minimal continuity demo; `pip install -e ".[vista]"` lights up
+dense semantic recall; `pip install -e ".[full]"` pulls the whole
 memory-and-recall stack from the internal Willow substrate.
 
 Each backend that offers a Vista/Wave replacement must implement the
