@@ -31,6 +31,30 @@ credential (Neo4j URL, Voyage API key), the backend reads it from the
 environment or an explicit argument at construction. The bundle never ships
 secrets.
 
+## Activation
+
+Installing an extra is necessary but not, on its own, sufficient. The read
+paths (CLI commands `context`, `foveate`, `vista`; the connections finder;
+the context composer) resolve their backend through the factory in
+`willow.backends.factory.make_relational_backend(store, name=...)`.
+
+The factory's resolution rules:
+
+1. Explicit `name=` argument (or `--backend` CLI flag) wins.
+2. Else the `WILLOW_BACKEND` env var (`voyage`, `sparse`, or `auto`).
+3. Else `auto`: return the Voyage dense backend when the `[vista]` extra is
+   importable AND `VOYAGE_API_KEY` is set; fall back to the dependency-free
+   sparse backend otherwise.
+
+Auto only activates the dense backend when a working configuration exists,
+so `pip install "willow-substrate[vista]"` does not turn a working sparse
+read into a construction-time failure. To force the dense backend
+regardless, pass `--backend voyage` or set `WILLOW_BACKEND=voyage`. To
+force the sparse floor, pass `--backend sparse`.
+
+`willow.backends.factory.active_backend_name()` reports what the factory
+would resolve to, for logging or CI.
+
 ## Currently available extras
 
 ### `[vista]` — dense-embedding Vista + Wave recall

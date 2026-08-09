@@ -286,6 +286,17 @@ def build_parser() -> argparse.ArgumentParser:
     foveate.add_argument("query")
     foveate.add_argument("--limit", type=int, default=12)
     foveate.add_argument("--without-vista", action="store_true")
+    foveate.add_argument(
+        "--backend",
+        choices=("auto", "voyage", "sparse"),
+        default=None,
+        help=(
+            "Which RelationalBackend to use. Default 'auto' picks Voyage when "
+            "[vista] is installed and VOYAGE_API_KEY is set, otherwise the "
+            "dependency-free sparse backend. Override with 'voyage' or "
+            "'sparse'; also settable via WILLOW_BACKEND env."
+        ),
+    )
 
     vista = sub.add_parser(
         "vista",
@@ -297,6 +308,17 @@ def build_parser() -> argparse.ArgumentParser:
     vista.add_argument("--wave-hops", type=int, default=4)
     vista.add_argument("--wave-damping", type=float, default=0.5)
     vista.add_argument("--max-events", type=int, default=2000)
+    vista.add_argument(
+        "--backend",
+        choices=("auto", "voyage", "sparse"),
+        default=None,
+        help=(
+            "Which RelationalBackend to use. Default 'auto' picks Voyage when "
+            "[vista] is installed and VOYAGE_API_KEY is set, otherwise the "
+            "dependency-free sparse backend. Override with 'voyage' or "
+            "'sparse'; also settable via WILLOW_BACKEND env."
+        ),
+    )
 
     meditation = sub.add_parser(
         "meditate",
@@ -734,15 +756,18 @@ def main(argv: list[str] | None = None) -> int:
                 mode="voluntary",
                 event_limit=args.limit,
             )
-            vista_result = (
-                VistaBackend(store).query(
+            if args.without_vista:
+                vista_result = None
+            else:
+                from willow.backends.factory import make_relational_backend
+
+                vista_result = make_relational_backend(
+                    store, name=getattr(args, "backend", None)
+                ).query(
                     args.query,
                     seed_event_ids=result.event_ids[:5],
                     limit=args.limit,
                 )
-                if not args.without_vista
-                else None
-            )
             if args.json:
                 print(json.dumps({
                     "query": result.query,
@@ -774,8 +799,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "vista":
-            result = VistaBackend(
+            from willow.backends.factory import make_relational_backend
+
+            result = make_relational_backend(
                 store,
+                name=getattr(args, "backend", None),
                 max_events=args.max_events,
                 wave_damping=args.wave_damping,
             ).query(
