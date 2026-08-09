@@ -6,13 +6,15 @@ bundle.
 
 ## Reporting a vulnerability
 
-Once the GitHub repository is established, use its private security-advisory
-channel. Do not open a public issue containing credentials, private memories,
-precise locations, transcripts, or an exploitable disclosure path.
+The repository is [agilemeshnet/willow-substrate](https://github.com/agilemeshnet/willow-substrate).
+Report privately via the GitHub Security Advisory channel:
+[Report a vulnerability](https://github.com/agilemeshnet/willow-substrate/security/advisories/new).
 
-Until a private reporting channel is published, do not send sensitive material
-to project contributors. Retain the evidence locally and open a minimal public
-issue stating that a private contact route is needed.
+Do not open a public issue containing credentials, private memories,
+precise locations, transcripts, or an exploitable disclosure path. If
+you cannot use the GitHub advisory channel, open a minimal public
+issue stating that a private route is needed and a maintainer will
+reach back.
 
 ## Current security boundary
 
@@ -20,12 +22,22 @@ The reference core:
 
 - stores events locally in SQLite;
 - enforces append-only events with database triggers;
-- verifies a global hash chain;
+- verifies a global hash chain, plus an anchored head-hash and event-count
+  in `willow_meta` (so tail truncation cannot pass as a green integrity
+  check), plus a reconciliation of the `events_fts` index against the
+  `events` table (so a silent search-index deletion cannot leave retrieval
+  censored while the ledger reads honest);
+- validates caller-supplied timestamps as ISO-8601 at append time (so a
+  malformed value cannot enter the hash chain);
 - treats corrections as new events;
 - does not call a model or cloud service by itself;
 - safe-stages research commissions by default;
-- keeps model and graph providers behind adapters;
+- keeps model and graph providers behind adapters (`[vista]` for dense
+  embedding recall via Voyage-4; `[neo4j]` for optional AuraDB graph
+  projection; each guarded by explicit environment configuration);
 - builds Vista/Wave locally as a derived view over active, unexpired events;
+- offers a hybrid RRF recall backend that fuses sparse + BM25 + optional
+  dense signals at query time;
 - returns Vista slugs, waypoints, source event IDs, and a decision trace.
 
 The alpha does not yet provide:
