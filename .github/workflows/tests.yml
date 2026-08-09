@@ -1,0 +1,73 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Zero-dep floor: fresh install with no extras runs the full base suite.
+  # This is the honest promise the repo makes to a first-time user.
+  base:
+    name: base install (no extras) / python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install package (no extras)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+      - name: Run test suite
+        run: |
+          PYTHONPATH=src python -m unittest discover -s tests -v
+
+  # [vista] extra: dense-embedding backend + factory routing + benchmark
+  # smoke test. Exercises the whole [vista] surface end-to-end.
+  vista:
+    name: "[vista] extra / python ${{ matrix.python }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install package with [vista] extra
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[vista]"
+      - name: Run test suite
+        run: |
+          PYTHONPATH=src python -m unittest discover -s tests -v
+      - name: Run recall benchmark (mock embedder; no API calls)
+        run: |
+          PYTHONPATH=src python -m benchmarks.recall --json > benchmark-results.json
+          cat benchmark-results.json
+      - name: Upload benchmark results
+        if: matrix.python == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-py${{ matrix.python }}
+          path: benchmark-results.json
+          if-no-files-found: warn
+          retention-days: 30

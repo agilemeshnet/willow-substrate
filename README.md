@@ -1,5 +1,7 @@
 # Willow
 
+[![tests](https://github.com/agilemeshnet/willow-substrate/actions/workflows/tests.yml/badge.svg)](https://github.com/agilemeshnet/willow-substrate/actions/workflows/tests.yml)
+
 **Local scaffold plus harness that lets small models solve hard problems by first choosing the right mathematical geometry.**
 
 Willow is a model-independent continuity layer for people and AI systems working
