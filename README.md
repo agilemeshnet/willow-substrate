@@ -68,9 +68,10 @@ pip install "willow-substrate[full]"       # the whole memory-and-recall stack
 ```
 
 See [docs/EXTRAS.md](docs/EXTRAS.md) for the design and the currently-shipped
-backends. AuraDB, richer MRL and high-dimensional Vista adapters, additional
-model-provider adapters, and generative meditation remain integration work in
-[docs/MIGRATION.md](docs/MIGRATION.md).
+backends, and [docs/BENCHMARK.md](docs/BENCHMARK.md) for the recall benchmark
+that compares them on a fixed corpus. AuraDB, richer MRL and high-dimensional
+Vista adapters, additional model-provider adapters, and generative meditation
+remain integration work in [docs/MIGRATION.md](docs/MIGRATION.md).
 
 ## Quick start
 
