@@ -211,7 +211,12 @@ def find_connections(
 
     relational: dict[str, VistaEvidence] = {}
     if include_vista:
-        backend = relational_backend or VistaBackend(store)
+        if relational_backend is not None:
+            backend = relational_backend
+        else:
+            from willow.backends.factory import make_relational_backend
+
+            backend = make_relational_backend(store)
         vista_result = backend.query(
             query or (seed.content if seed else ""),
             seed_event_ids=(seed.id,) if seed else (),

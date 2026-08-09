@@ -36,7 +36,12 @@ class ContextBuilder:
     ):
         self.store = store
         self.foveator = Foveator(store)
-        self.relational_backend = relational_backend or VistaBackend(store)
+        if relational_backend is not None:
+            self.relational_backend = relational_backend
+        else:
+            from willow.backends.factory import make_relational_backend
+
+            self.relational_backend = make_relational_backend(store)
 
     def build(
         self,
