@@ -1,0 +1,9 @@
+{
+  "name": "hybrid-voyage",
+  "backend": "hybrid",
+  "backend_kwargs": {},
+  "context_tokens": [256, 512, 1024, 2048],
+  "include_final_context": true,
+  "requires": ["VOYAGE_API_KEY", "[vista] extra"],
+  "notes": "Hybrid RRF including real Voyage-4 embeddings. Requires VOYAGE_API_KEY. Reviewer explicitly warned against using topic-aware mock vectors here."
+}
