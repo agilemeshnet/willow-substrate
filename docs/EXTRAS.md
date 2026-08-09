@@ -106,13 +106,45 @@ for item in result.evidence:
     print(item.event.short_id, item.score, item.channels)
 ```
 
-### `[neo4j]` — AuraDB graph projection (coming)
+### `[neo4j]` — AuraDB graph projection
 
-Optional graph projection of the event ledger for federation and audit.
-Reads `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` from the environment or
-takes them as constructor arguments.
+Mirror the local event ledger into a Neo4j / AuraDB graph so federated
+agents share a query surface, audits can traverse relationships, and
+graph-native queries can join the ledger with other knowledge.
 
 Dependencies: `neo4j`, `python-dotenv`.
+
+Environment (or constructor args): `NEO4J_URI`, `NEO4J_USER`,
+`NEO4J_PASSWORD`. Optional: `NEO4J_DATABASE`.
+
+Concrete adapter: `willow.adapters.neo4j.Neo4jGraphAdapter`.
+
+Graph shape:
+
+- `(:Event {id, timestamp, kind, content, hash, seq})` one node per
+  Willow event; MERGE on id so re-runs are idempotent.
+- `(:Session {id})` grouping node per session.
+- `(:Actor {name})` node per unique actor.
+- `(:Event)-[:IN_SESSION]->(:Session)`
+- `(:Event)-[:AUTHORED_BY]->(:Actor)`
+- `(:Event)-[:SUPERSEDES]->(:Event)` for corrections.
+- `(:Event)-[:DERIVES_FROM]->(:Event)` for meditations, engrams, and
+  any event whose `derived_from` list is non-empty.
+
+Minimal usage:
+
+```python
+from willow.store import EventStore
+from willow.adapters.neo4j import Neo4jGraphAdapter
+
+store = EventStore()
+with Neo4jGraphAdapter() as adapter:
+    adapter.ensure_constraints()   # one-time; idempotent
+    adapter.mirror_all(store)      # one-shot full mirror
+```
+
+The adapter is deliberately one-way. The local ledger stays the single
+writer; the graph is a projection audit and federation can read.
 
 ## Coming extras
 
