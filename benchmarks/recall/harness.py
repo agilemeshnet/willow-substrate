@@ -264,6 +264,43 @@ class BM25Runner:
         return self.backend.query(text, limit=limit)
 
 
+class HybridRunner:
+    """Hybrid RRF: fuses sparse + BM25 + optional dense at query time."""
+
+    name = "hybrid"
+
+    def __init__(
+        self,
+        store: EventStore,
+        *,
+        event_key_to_id: dict[str, str] | None = None,
+        corpus_topics: dict[str, list[str]] | None = None,
+        queries: list[dict[str, Any]] | None = None,
+        include_dense: bool = False,
+    ):
+        from willow.backends.hybrid import HybridRecallBackend
+
+        dense = None
+        if include_dense and event_key_to_id and corpus_topics and queries:
+            # Use the mock-embedder Voyage backend so no API call is required.
+            from willow.backends.vista_voyage import VoyageVistaBackend
+
+            topic_map: dict[str, list[str]] = {}
+            for key, event_id in event_key_to_id.items():
+                topic_map[event_id] = corpus_topics.get(key, [])
+            for query in queries:
+                topic_map[f"__query__:{query['text']}"] = [query["topic"]]
+            embedder = _MockVoyageEmbedder(topic_map)
+            dense = VoyageVistaBackend(
+                store, embedder=embedder, min_cluster_size=2
+            )
+        self.backend = HybridRecallBackend(store, dense=dense)
+
+    def query(self, text: str, *, limit: int) -> list[tuple[str, float]]:
+        result = self.backend.query(text, limit=limit)
+        return [(ev.event.id, float(ev.score)) for ev in result.evidence][:limit]
+
+
 # --------------------------------------------------------------------------- #
 # Metrics                                                                     #
 # --------------------------------------------------------------------------- #
@@ -386,10 +423,16 @@ def run(
         reports.append(
             _run_one(BM25Runner(store), queries, event_key_to_id, limit)
         )
-        # Voyage-mock (available whenever the [vista] extra is installed)
+        # Voyage-mock and hybrid (both use the [vista] extra when available)
+        has_vista = False
         try:
             import willow.backends.vista_voyage  # noqa: F401
 
+            has_vista = True
+        except ImportError:
+            pass
+
+        if has_vista:
             reports.append(
                 _run_one(
                     VoyageMockRunner(
@@ -403,8 +446,23 @@ def run(
                     limit,
                 )
             )
-        except ImportError:
-            pass
+
+        # Hybrid: always available. Includes dense sub-backend when [vista]
+        # is installed (with the mock embedder), else fuses sparse + BM25.
+        reports.append(
+            _run_one(
+                HybridRunner(
+                    store,
+                    event_key_to_id=event_key_to_id,
+                    corpus_topics=corpus_topics,
+                    queries=queries,
+                    include_dense=has_vista,
+                ),
+                queries,
+                event_key_to_id,
+                limit,
+            )
+        )
 
         # Real Voyage (only when explicitly requested)
         if real_voyage:

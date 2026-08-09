@@ -43,7 +43,7 @@ from willow.store import EventStore
 from willow.vista import VistaBackend
 
 
-VALID_NAMES = ("auto", "voyage", "sparse", "default")
+VALID_NAMES = ("auto", "voyage", "sparse", "default", "hybrid")
 
 
 class BackendNotAvailable(RuntimeError):
@@ -86,6 +86,16 @@ def make_relational_backend(
         return _sparse_backend(
             store, max_events=max_events, wave_damping=wave_damping, **extra
         )
+
+    if resolved == "hybrid":
+        from willow.backends.hybrid import HybridRecallBackend
+
+        kwargs = dict(extra)
+        if max_events is not None:
+            kwargs.setdefault("max_events", max_events)
+        if wave_damping is not None:
+            kwargs.setdefault("wave_damping", wave_damping)
+        return HybridRecallBackend(store, **kwargs)
 
     # 'auto' resolution: try Voyage if extras + key are both present.
     if _voyage_available_and_configured():
