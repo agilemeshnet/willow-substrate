@@ -49,6 +49,7 @@ any extras. Install `[vista]` to add the Voyage-mock row.
 | `bm25` | Always | Inline Okapi BM25 (k1=1.5, b=0.75), included as the canonical term-frequency baseline. |
 | `voyage-mock` | `[vista]` extra | The `VoyageVistaBackend` from `willow.backends.vista_voyage`, driven by a deterministic mock embedder that seeds per-topic 32-dim vectors so no API calls are needed. See the honesty note below. |
 | `voyage-real` | Opt-in with `--real-voyage` + `VOYAGE_API_KEY` | The same backend against the actual Voyage-4 API. Charges tokens; typical bird-study run is < $0.0001. |
+| `hybrid` | Always | Reciprocal Rank Fusion (Cormack et al. 2009) of sparse + BM25 + optional dense. Uses `willow.backends.hybrid.HybridRecallBackend`. Includes the dense sub-backend when `[vista]` is installed. |
 
 ## Honesty about `voyage-mock`
 
@@ -72,21 +73,34 @@ with `--real-voyage` will see that gap on their own numbers.
 ## Sample output (from a fresh install with `[vista]`)
 
 ```
-| Backend | Recall@3 | Recall@5 | MRR | Median latency (ms) |
-|---|---|---|---|---|
-| sparse | 0.417 | 0.556 | 0.589 | 0.55 |
-| bm25 | 0.389 | 0.500 | 0.625 | 0.01 |
-| voyage-mock | 0.722 | 0.722 | 1.000 | 0.66 |
+| Backend     | Recall@3 | Recall@5 | MRR   | Median latency (ms) |
+|-------------|----------|----------|-------|---------------------|
+| sparse      |    0.417 |    0.556 | 0.589 |                0.53 |
+| bm25        |    0.389 |    0.500 | 0.625 |                0.01 |
+| voyage-mock |    0.722 |    0.722 | 1.000 |                0.64 |
+| hybrid      |    0.500 |    0.556 | 0.833 |                2.64 |
 ```
 
-Read this as: the `sparse` and `bm25` backends are close to each other
-on this corpus, with BM25 a hair faster (a well-tuned formula and a
-smaller feature set) and slightly better on MRR. The `voyage-mock`
-upper bound shows the algorithmic pipeline (HDBSCAN + wave-recall +
-evidence ranking) can turn topic-recovering embeddings into
-substantially better recall on paraphrase queries. What the real-voyage
-row actually looks like on your corpus is the honest question, which is
-why `--real-voyage` is a flag.
+Read this as:
+
+- **`sparse` and `bm25`** are close on this corpus. BM25 is a hair
+  faster (tighter formula, smaller feature set) and slightly better on
+  MRR. Neither handles paraphrase queries well by design.
+- **`voyage-mock`** is the oracle-embedding upper bound; see the honesty
+  note above. Its numbers tell you what the algorithmic pipeline can
+  do given topic-recovering embeddings, not what real Voyage achieves.
+- **`hybrid`** is the practical best-of-both: fuses sparse + BM25 +
+  (when `[vista]` is installed) the dense mock via Reciprocal Rank
+  Fusion. Its MRR of 0.833 substantially beats either sparse or BM25
+  alone because rank-fusion recovers events that any one backend
+  ranked adequately even if none ranked them first. Latency is ~5x
+  sparse's because three sub-backends run per query; still sub-3ms
+  on this small corpus.
+
+The competitive-retrieval story on this corpus: **hybrid** wins on MRR
+without an API key or paid tokens, and **voyage-real** (when you set
+`--real-voyage`) tests where dense embeddings alone or in the hybrid
+line up against that.
 
 ## Methodology notes
 

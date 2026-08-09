@@ -80,6 +80,18 @@ Ports the internal Willow `thought-buckets/wave.py` + `mint_buckets.py` +
 dependency-free `VistaBackend` so downstream readers do not care which
 backend produced the surround.
 
+### `hybrid` — Reciprocal Rank Fusion of sparse + BM25 + optional dense
+
+Always available; no extras required for the sparse + BM25 half. When
+`[vista]` is installed and `VOYAGE_API_KEY` is set, the dense sub-backend
+joins the fusion. Cormack et al. 2009 (SIGIR) RRF with k=60. Concrete
+module: `willow.backends.hybrid.HybridRecallBackend`.
+
+Fuses ranks, not scores, so the fusion is stable across sub-backends that
+produce incomparable score scales. Any event that appears in more than one
+sub-backend's top-K rises above events that appear in only one. Activate
+via `--backend hybrid` on the CLI or `WILLOW_BACKEND=hybrid`.
+
 Minimal example (mock embedder in the test suite; real usage sets
 `VOYAGE_API_KEY`):
 

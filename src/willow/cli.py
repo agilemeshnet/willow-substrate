@@ -288,7 +288,7 @@ def build_parser() -> argparse.ArgumentParser:
     foveate.add_argument("--without-vista", action="store_true")
     foveate.add_argument(
         "--backend",
-        choices=("auto", "voyage", "sparse"),
+        choices=("auto", "voyage", "sparse", "hybrid"),
         default=None,
         help=(
             "Which RelationalBackend to use. Default 'auto' picks Voyage when "
@@ -310,7 +310,7 @@ def build_parser() -> argparse.ArgumentParser:
     vista.add_argument("--max-events", type=int, default=2000)
     vista.add_argument(
         "--backend",
-        choices=("auto", "voyage", "sparse"),
+        choices=("auto", "voyage", "sparse", "hybrid"),
         default=None,
         help=(
             "Which RelationalBackend to use. Default 'auto' picks Voyage when "
