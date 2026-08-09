@@ -7,7 +7,7 @@ graph-native queries can join the ledger with other knowledge.
 
 Install with:
 
-    pip install "willow-substrate[neo4j]"
+    pip install -e ".[neo4j]"
 
 Environment (or constructor args):
 

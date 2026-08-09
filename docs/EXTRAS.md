@@ -3,11 +3,16 @@
 The base install is dependency-free and runs the continuity demo. Extras add
 richer memory-and-recall backends from the full internal Willow substrate.
 
+The package is not yet on PyPI. Install from a local checkout:
+
 ```bash
-pip install willow-substrate               # zero-dep floor (continuity demo)
-pip install "willow-substrate[vista]"      # dense-embedding Vista + Wave recall
-pip install "willow-substrate[neo4j]"      # optional AuraDB graph projection
-pip install "willow-substrate[full]"       # the whole memory-and-recall stack
+git clone https://github.com/agilemeshnet/willow-substrate.git
+cd willow-substrate
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .                       # zero-dep floor (continuity demo)
+pip install -e ".[vista]"              # dense-embedding Vista + Wave recall
+pip install -e ".[neo4j]"              # optional AuraDB graph projection
+pip install -e ".[full]"               # the whole memory-and-recall stack
 ```
 
 ## Design principles
@@ -47,7 +52,7 @@ The factory's resolution rules:
    sparse backend otherwise.
 
 Auto only activates the dense backend when a working configuration exists,
-so `pip install "willow-substrate[vista]"` does not turn a working sparse
+so `pip install -e ".[vista]"` does not turn a working sparse
 read into a construction-time failure. To force the dense backend
 regardless, pass `--backend voyage` or set `WILLOW_BACKEND=voyage`. To
 force the sparse floor, pass `--backend sparse`.

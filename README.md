@@ -2,51 +2,46 @@
 
 [![tests](https://github.com/agilemeshnet/willow-substrate/actions/workflows/tests.yml/badge.svg)](https://github.com/agilemeshnet/willow-substrate/actions/workflows/tests.yml)
 
-**Local scaffold plus harness that lets small models solve hard problems by first choosing the right mathematical geometry.**
+**Persistent, provenance-bearing memory shared across Claude Code sessions. Local, hash-chained, no model calls.**
 
-Willow is a model-independent continuity layer for people and AI systems working
-together on projects that last months or years.
+Willow gives a Claude Code (or similar) session an auditable local event
+ledger it can share with every other session on the same machine. Start work
+in one terminal, walk over to another with zero copied history, and retrieve
+what was said, who said it, and when.
 
-## Why this shape
+The reason to install: SQLite-enforced append-only events, a globally
+hash-chained ledger with an anchored head, transactional concurrent writers,
+and corrections that supersede rather than overwrite. `willow verify` makes
+the whole thing falsifiable rather than asserted. Nothing calls a model or
+cloud service by itself.
 
-Rather than pay for the largest cloud model, Willow lets a small local model
-perform through two components working alongside it:
+## Install
 
-- **Scaffold**: the searchable geometry of the work. Provenance-bearing events,
-  waypoints, Vista clustering, hash-chained history.
-- **Harness**: how compute moves through that geometry. Foveation, Wave recall,
-  hook-driven engrams, meditation and dream cycles.
+The package is not yet on PyPI. Install from a local checkout:
 
-Two independent lines of work point in the same broader design direction. The
-accessible field-vocabulary framing is [*Why Smarter AI Needs the Right Scaffold
-(plus Harness)*](https://www.youtube.com/watch?v=KoMoW2DE55M) (Discover AI,
-2026-08-05). The recent academic instance is [*Argus: A General-Purpose Agentic
-Runtime for Long-Horizon Reasoning*](https://arxiv.org/abs/2608.05144)
-(Microsoft plus several Chinese universities, August 2026), which builds a
-persistent, verification-gated runtime that improves through retained state
-rather than through weight updates.
+```bash
+git clone https://github.com/agilemeshnet/willow-substrate.git
+cd willow-substrate
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .                       # zero-dep floor
+pip install -e ".[vista]"              # add dense-embedding recall
+pip install -e ".[neo4j]"              # add AuraDB graph projection
+pip install -e ".[full]"               # everything
+```
 
-Argus grounds that design in Blackwell (1953, Proposition 1): the full process
-record dominates the final artifact for every downstream decision problem.
-This bundle takes the same position at a smaller scope: an append-only event
-ledger with corrections that supersede rather than overwrite, a bounded
-reviewed checkpoint, and provenance on every retrieved item. Argus's
-benchmarks are not a validation of this bundle; they are independent evidence
-that persistent-state, verification-gated runtimes are a live design
-direction, not idiosyncratic.
-
-## What that gets you
+## Two-terminal continuity in 30 seconds
 
 **Start in one terminal. Continue in another. Change the model. Willow remembers the work.**
 
-This repository is the clean reference bundle distilled from the larger Willow
-system. It begins with the smallest experience worth reproducing:
+This repository is the clean reference bundle distilled from the larger
+Willow system. It begins with the smallest experience worth reproducing:
 
 1. Record work in one terminal or agent session.
 2. Open another terminal with no copied conversation history.
 3. Retrieve a compact, provenance-bearing view of the shared work.
 4. Correct earlier material without deleting it.
-5. Create later meditations derived from the preserved experience.
+5. Create later reflections derived from the preserved experience.
 
 The existing Willow repositories remain the research and deployment
 archaeology. This repository is the installable contract.
@@ -56,18 +51,11 @@ archaeology. This repository is the installable contract.
 Alpha. The local continuity loop, Claude Code lifecycle adapter, research
 ledger, Fact TTL state machine, stereo word/idea-shape connection finder, and
 an executable eight-week temporal evaluation sample work with no required
-third-party dependencies. A dependency-free Vista/Wave backend restores the
-relational neighbourhood around foveated attention.
+third-party dependencies. A dependency-free retrieval backend covers the
+relational neighbourhood around focused attention.
 
-Layered fidelity is now the shape. `pip install willow-substrate` stays
-zero-dep. Optional extras add richer memory-and-recall backends ported from
-the full internal Willow substrate:
-
-```bash
-pip install "willow-substrate[vista]"      # dense-embedding Vista + Wave recall
-pip install "willow-substrate[neo4j]"      # optional AuraDB graph projection
-pip install "willow-substrate[full]"       # the whole memory-and-recall stack
-```
+Optional extras add richer memory-and-recall backends when you want them.
+See [docs/EXTRAS.md](docs/EXTRAS.md).
 
 See [docs/EXTRAS.md](docs/EXTRAS.md) for the design and the currently-shipped
 backends, [docs/BENCHMARK.md](docs/BENCHMARK.md) for the fast unit-scale
