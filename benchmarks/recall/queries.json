@@ -1,0 +1,67 @@
+{
+  "schema": "willow.recall-benchmark/v1",
+  "description": "Ground-truth queries for the recall benchmark. Each query names a topic tag from the temporal-bird-study corpus; relevant_keys is the set of event keys that carry that topic in their metadata.topics. Paraphrase queries (marked with 'paraphrase': true) use synonyms and rephrasings that a term-frequency backend cannot match by surface form; a dense semantic backend should still score them highly.",
+  "corpus": "examples/temporal-bird-study.json",
+  "queries": [
+    {
+      "id": "bird-population-literal",
+      "text": "bird population count",
+      "topic": "bird-population",
+      "relevant_keys": [
+        "week-01-initial-count",
+        "week-04-corrected-count",
+        "week-09-supported-reconstruction"
+      ],
+      "paraphrase": false
+    },
+    {
+      "id": "bird-population-paraphrase",
+      "text": "How many nesting pairs did the survey record over the field season?",
+      "topic": "bird-population",
+      "relevant_keys": [
+        "week-01-initial-count",
+        "week-04-corrected-count",
+        "week-09-supported-reconstruction"
+      ],
+      "paraphrase": true
+    },
+    {
+      "id": "field-count-literal",
+      "text": "field count",
+      "topic": "field-count",
+      "relevant_keys": [
+        "week-01-initial-count",
+        "week-04-corrected-count"
+      ],
+      "paraphrase": false
+    },
+    {
+      "id": "field-count-paraphrase",
+      "text": "on-site tally of the occupied breeding sites",
+      "topic": "field-count",
+      "relevant_keys": [
+        "week-01-initial-count",
+        "week-04-corrected-count"
+      ],
+      "paraphrase": true
+    },
+    {
+      "id": "predation-paraphrase",
+      "text": "raptors hunting from above pressuring the flock",
+      "topic": "predation",
+      "relevant_keys": [
+        "week-03-predation-pressure"
+      ],
+      "paraphrase": true
+    },
+    {
+      "id": "habitat-paraphrase",
+      "text": "construction works displacing nesting groups",
+      "topic": "habitat-disturbance",
+      "relevant_keys": [
+        "week-02-construction-pressure"
+      ],
+      "paraphrase": true
+    }
+  ]
+}
