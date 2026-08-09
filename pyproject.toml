@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "willow-continuity"
+name = "willow-substrate"
 version = "0.2.0"
 description = "A model-independent continuity layer for long-running human-AI work"
 readme = "README.md"
