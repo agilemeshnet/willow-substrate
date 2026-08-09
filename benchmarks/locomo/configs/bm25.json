@@ -1,0 +1,8 @@
+{
+  "name": "bm25",
+  "backend": "hybrid",
+  "backend_kwargs": {},
+  "context_tokens": [256, 512, 1024, 2048],
+  "include_final_context": true,
+  "notes": "The reviewer asked for a 'plain BM25' row. The hybrid backend already has an inline Okapi BM25; this config runs hybrid with the sparse sub-backend's contribution effectively zeroed by the RRF k constant (see run notes)."
+}

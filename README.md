@@ -70,10 +70,13 @@ pip install "willow-substrate[full]"       # the whole memory-and-recall stack
 ```
 
 See [docs/EXTRAS.md](docs/EXTRAS.md) for the design and the currently-shipped
-backends, and [docs/BENCHMARK.md](docs/BENCHMARK.md) for the recall benchmark
-that compares them on a fixed corpus. AuraDB, richer MRL and high-dimensional
-Vista adapters, additional model-provider adapters, and generative meditation
-remain integration work in [docs/MIGRATION.md](docs/MIGRATION.md).
+backends, [docs/BENCHMARK.md](docs/BENCHMARK.md) for the fast unit-scale
+recall regression suite, and [docs/BENCHMARK_LOCOMO.md](docs/BENCHMARK_LOCOMO.md)
+for the comparative-evidence LoCoMo harness (scaffold shipped; runs once the
+dataset is fetched at `benchmarks/locomo/data/`). AuraDB, richer MRL and
+high-dimensional Vista adapters, additional model-provider adapters, and
+generative meditation remain integration work in
+[docs/MIGRATION.md](docs/MIGRATION.md).
 
 ## Quick start
 
