@@ -211,11 +211,9 @@ def run_conversation(
             if composer is not None:
                 for budget in config.context_tokens:
                     ct0 = time.perf_counter()
-                    packet = composer.build(q.text, max_tokens=budget)
+                    packet = composer.build(q.text, token_budget=budget)
                     context_ms = (time.perf_counter() - ct0) * 1000.0
-                    in_context_ids = [
-                        event.id for event in packet.events
-                    ] if hasattr(packet, "events") else []
+                    in_context_ids = list(packet.event_ids)
                     per_budget.append(
                         {
                             "context_tokens": budget,
