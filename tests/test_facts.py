@@ -5,8 +5,8 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from willow.facts import FactLedger
-from willow.store import EventStore
+from willow_substrate.facts import FactLedger
+from willow_substrate.store import EventStore
 
 
 class FactLedgerTests(unittest.TestCase):

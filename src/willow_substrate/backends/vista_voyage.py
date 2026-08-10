@@ -17,8 +17,8 @@ Install with:
 
 Usage:
 
-    from willow.store import EventStore
-    from willow.backends.vista_voyage import VoyageVistaBackend
+    from willow_substrate.store import EventStore
+    from willow_substrate.backends.vista_voyage import VoyageVistaBackend
 
     store = EventStore()
     backend = VoyageVistaBackend(store, api_key=os.environ["VOYAGE_API_KEY"])
@@ -56,9 +56,9 @@ except ImportError as exc:  # pragma: no cover
         "Install with: pip install \"willow-substrate[vista]\""
     ) from exc
 
-from willow.events import Event
-from willow.store import EventStore
-from willow.vista import (
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
+from willow_substrate.vista import (
     ReferenceBeam,
     Vista,
     VistaEvidence,

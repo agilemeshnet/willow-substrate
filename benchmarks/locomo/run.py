@@ -27,9 +27,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from willow.store import EventStore  # noqa: E402
-from willow.context import ContextBuilder  # noqa: E402
-from willow.backends.factory import make_relational_backend  # noqa: E402
+from willow_substrate.store import EventStore  # noqa: E402
+from willow_substrate.context import ContextBuilder  # noqa: E402
+from willow_substrate.backends.factory import make_relational_backend  # noqa: E402
 
 from benchmarks.locomo.adapter import (  # noqa: E402
     LocomoConversation,
@@ -145,7 +145,7 @@ class _Oracle:
 
 def _pack_result(events, scores):
     """Wrap a plain list of events into a VistaResult-shaped surface."""
-    from willow.vista import VistaEvidence, VistaResult
+    from willow_substrate.vista import VistaEvidence, VistaResult
 
     evidence = tuple(
         VistaEvidence(

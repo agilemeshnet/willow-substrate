@@ -4,11 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.connections import find_connections
-from willow.context import ContextBuilder
-from willow.samples import load_temporal_sample
-from willow.store import EventStore
-from willow.vista import VistaBackend
+from willow_substrate.connections import find_connections
+from willow_substrate.context import ContextBuilder
+from willow_substrate.samples import load_temporal_sample
+from willow_substrate.store import EventStore
+from willow_substrate.vista import VistaBackend
 
 
 SAMPLE = Path(__file__).parents[1] / "examples" / "temporal-bird-study.json"

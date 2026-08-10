@@ -41,7 +41,7 @@ secrets.
 Installing an extra is necessary but not, on its own, sufficient. The read
 paths (CLI commands `context`, `foveate`, `vista`; the connections finder;
 the context composer) resolve their backend through the factory in
-`willow.backends.factory.make_relational_backend(store, name=...)`.
+`willow_substrate.backends.factory.make_relational_backend(store, name=...)`.
 
 The factory's resolution rules:
 
@@ -57,7 +57,7 @@ read into a construction-time failure. To force the dense backend
 regardless, pass `--backend voyage` or set `WILLOW_BACKEND=voyage`. To
 force the sparse floor, pass `--backend sparse`.
 
-`willow.backends.factory.active_backend_name()` reports what the factory
+`willow_substrate.backends.factory.active_backend_name()` reports what the factory
 would resolve to, for logging or CI.
 
 ## Currently available extras
@@ -79,7 +79,7 @@ store; repeat calls do not re-embed. A corpus that grew by ten events only
 pays for those ten. Model mismatch invalidates the cache so different
 embedding dimensions never collide.
 
-Concrete backend module: `willow.backends.vista_voyage.VoyageVistaBackend`.
+Concrete backend module: `willow_substrate.backends.vista_voyage.VoyageVistaBackend`.
 Ports the internal Willow `thought-buckets/wave.py` + `mint_buckets.py` +
 `voyage_embed.py` patterns. Produces the same `VistaResult` shape as the
 dependency-free `VistaBackend` so downstream readers do not care which
@@ -90,7 +90,7 @@ backend produced the surround.
 Always available; no extras required for the sparse + BM25 half. When
 `[vista]` is installed and `VOYAGE_API_KEY` is set, the dense sub-backend
 joins the fusion. Cormack et al. 2009 (SIGIR) RRF with k=60. Concrete
-module: `willow.backends.hybrid.HybridRecallBackend`.
+module: `willow_substrate.backends.hybrid.HybridRecallBackend`.
 
 Fuses ranks, not scores, so the fusion is stable across sub-backends that
 produce incomparable score scales. Any event that appears in more than one
@@ -101,8 +101,8 @@ Minimal example (mock embedder in the test suite; real usage sets
 `VOYAGE_API_KEY`):
 
 ```python
-from willow.store import EventStore
-from willow.backends.vista_voyage import VoyageVistaBackend
+from willow_substrate.store import EventStore
+from willow_substrate.backends.vista_voyage import VoyageVistaBackend
 
 store = EventStore()
 backend = VoyageVistaBackend(store)  # reads VOYAGE_API_KEY from env
@@ -122,7 +122,7 @@ Dependencies: `neo4j`, `python-dotenv`.
 Environment (or constructor args): `NEO4J_URI`, `NEO4J_USER`,
 `NEO4J_PASSWORD`. Optional: `NEO4J_DATABASE`.
 
-Concrete adapter: `willow.adapters.neo4j.Neo4jGraphAdapter`.
+Concrete adapter: `willow_substrate.adapters.neo4j.Neo4jGraphAdapter`.
 
 Graph shape:
 
@@ -139,8 +139,8 @@ Graph shape:
 Minimal usage:
 
 ```python
-from willow.store import EventStore
-from willow.adapters.neo4j import Neo4jGraphAdapter
+from willow_substrate.store import EventStore
+from willow_substrate.adapters.neo4j import Neo4jGraphAdapter
 
 store = EventStore()
 with Neo4jGraphAdapter() as adapter:
@@ -201,7 +201,7 @@ To add a new extra:
     ```python
     import unittest
     try:
-        import willow.backends.vista_voyage  # noqa: F401
+        import willow_substrate.backends.vista_voyage  # noqa: F401
         HAS_VISTA_EXTRA = True
     except ImportError:
         HAS_VISTA_EXTRA = False

@@ -5,9 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.backends.hybrid import HybridRecallBackend, _rrf_fuse, _BackendContribution
-from willow.store import EventStore
-from willow.vista import VistaResult
+from willow_substrate.backends.hybrid import HybridRecallBackend, _rrf_fuse, _BackendContribution
+from willow_substrate.store import EventStore
+from willow_substrate.vista import VistaResult
 
 
 class RRFFusionTests(unittest.TestCase):
@@ -119,13 +119,13 @@ class HybridFactoryTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_factory_returns_hybrid_when_named(self):
-        from willow.backends.factory import make_relational_backend
+        from willow_substrate.backends.factory import make_relational_backend
 
         backend = make_relational_backend(self.store, name="hybrid")
         self.assertIsInstance(backend, HybridRecallBackend)
 
     def test_factory_rejects_hybrid_typo(self):
-        from willow.backends.factory import make_relational_backend
+        from willow_substrate.backends.factory import make_relational_backend
 
         with self.assertRaises(ValueError):
             make_relational_backend(self.store, name="hybird")

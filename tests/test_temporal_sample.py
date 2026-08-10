@@ -5,9 +5,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.connections import find_connections
-from willow.samples import evaluate_temporal_sample, load_temporal_sample
-from willow.store import EventStore
+from willow_substrate.connections import find_connections
+from willow_substrate.samples import evaluate_temporal_sample, load_temporal_sample
+from willow_substrate.store import EventStore
 
 
 SAMPLE = Path(__file__).parents[1] / "examples" / "temporal-bird-study.json"

@@ -39,9 +39,9 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from willow.events import Event
-from willow.store import EventStore
-from willow.vista import (
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
+from willow_substrate.vista import (
     ReferenceBeam,
     Vista,
     VistaBackend,
@@ -312,7 +312,7 @@ def _auto_dense(store: EventStore):
     if not os.environ.get("VOYAGE_API_KEY"):
         return None
     try:
-        from willow.backends.vista_voyage import VoyageVistaBackend
+        from willow_substrate.backends.vista_voyage import VoyageVistaBackend
     except ImportError:
         return None
     try:

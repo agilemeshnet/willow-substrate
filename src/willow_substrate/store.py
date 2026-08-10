@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-from willow.events import Event, EventHit
+from willow_substrate.events import Event, EventHit
 
 
 GENESIS_HASH = hashlib.sha256(b"willow-genesis-v1").hexdigest()

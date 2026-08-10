@@ -6,7 +6,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from willow.store import EventStore
+from willow_substrate.store import EventStore
 
 
 class EventStoreTests(unittest.TestCase):

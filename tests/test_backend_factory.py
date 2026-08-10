@@ -15,9 +15,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from willow.store import EventStore
-from willow.vista import VistaBackend
-from willow.backends.factory import (
+from willow_substrate.store import EventStore
+from willow_substrate.vista import VistaBackend
+from willow_substrate.backends.factory import (
     BackendNotAvailable,
     active_backend_name,
     make_relational_backend,
@@ -25,7 +25,7 @@ from willow.backends.factory import (
 
 
 try:
-    import willow.backends.vista_voyage  # noqa: F401
+    import willow_substrate.backends.vista_voyage  # noqa: F401
     HAS_VISTA_EXTRA = True
 except ImportError:
     HAS_VISTA_EXTRA = False

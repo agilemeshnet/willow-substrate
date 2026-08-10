@@ -38,9 +38,9 @@ from typing import Any, Iterable
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from willow.samples import load_temporal_sample  # noqa: E402
-from willow.store import EventStore  # noqa: E402
-from willow.vista import VistaBackend  # noqa: E402
+from willow_substrate.samples import load_temporal_sample  # noqa: E402
+from willow_substrate.store import EventStore  # noqa: E402
+from willow_substrate.vista import VistaBackend  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -222,7 +222,7 @@ class VoyageMockRunner:
         corpus_topics: dict[str, list[str]],
         queries: list[dict[str, Any]],
     ):
-        from willow.backends.vista_voyage import VoyageVistaBackend
+        from willow_substrate.backends.vista_voyage import VoyageVistaBackend
 
         # Build the topic map keyed by event_id + query id string.
         topic_map: dict[str, list[str]] = {}
@@ -244,7 +244,7 @@ class VoyageRealRunner:
     name = "voyage-real"
 
     def __init__(self, store: EventStore, *, api_key: str):
-        from willow.backends.vista_voyage import VoyageVistaBackend
+        from willow_substrate.backends.vista_voyage import VoyageVistaBackend
 
         self.backend = VoyageVistaBackend(store, api_key=api_key)
 
@@ -278,12 +278,12 @@ class HybridRunner:
         queries: list[dict[str, Any]] | None = None,
         include_dense: bool = False,
     ):
-        from willow.backends.hybrid import HybridRecallBackend
+        from willow_substrate.backends.hybrid import HybridRecallBackend
 
         dense = None
         if include_dense and event_key_to_id and corpus_topics and queries:
             # Use the mock-embedder Voyage backend so no API call is required.
-            from willow.backends.vista_voyage import VoyageVistaBackend
+            from willow_substrate.backends.vista_voyage import VoyageVistaBackend
 
             topic_map: dict[str, list[str]] = {}
             for key, event_id in event_key_to_id.items():
@@ -426,7 +426,7 @@ def run(
         # Voyage-mock and hybrid (both use the [vista] extra when available)
         has_vista = False
         try:
-            import willow.backends.vista_voyage  # noqa: F401
+            import willow_substrate.backends.vista_voyage  # noqa: F401
 
             has_vista = True
         except ImportError:

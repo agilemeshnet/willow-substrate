@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 try:
-    from willow.adapters.neo4j import (  # noqa: F401
+    from willow_substrate.adapters.neo4j import (  # noqa: F401
         Neo4jConfigError,
         Neo4jGraphAdapter,
     )
@@ -25,7 +25,7 @@ except ImportError:
     HAS_NEO4J_EXTRA = False
 
 
-from willow.store import EventStore
+from willow_substrate.store import EventStore
 
 
 @unittest.skipUnless(
@@ -110,10 +110,10 @@ class Neo4jAdapterLiveTests(unittest.TestCase):
 class NoExtraImportGuardTests(unittest.TestCase):
     def test_guard_message_names_the_extras_install(self):
         if HAS_NEO4J_EXTRA:
-            import willow.adapters.neo4j  # noqa: F401
+            import willow_substrate.adapters.neo4j  # noqa: F401
         else:
             with self.assertRaises(ImportError) as ctx:
-                import willow.adapters.neo4j  # noqa: F401
+                import willow_substrate.adapters.neo4j  # noqa: F401
             message = str(ctx.exception)
             self.assertIn("[neo4j]", message)
             self.assertIn("pip install", message)

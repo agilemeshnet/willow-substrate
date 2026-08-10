@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.dreaming import dream
-from willow.engrams import crystallize_retroactive_engrams
-from willow.store import EventStore
+from willow_substrate.dreaming import dream
+from willow_substrate.engrams import crystallize_retroactive_engrams
+from willow_substrate.store import EventStore
 
 
 class ReflectionLayerTests(unittest.TestCase):

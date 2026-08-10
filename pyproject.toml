@@ -69,7 +69,7 @@ full = [
 ]
 
 [project.scripts]
-willow = "willow.cli:main"
+willow = "willow_substrate.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

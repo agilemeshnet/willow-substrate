@@ -1,20 +1,20 @@
 """Willow: continuity for long-running human-AI work."""
 
-from willow.connections import ConnectionCandidate, find_connections
-from willow.context import ContextBuilder, ContextPacket
-from willow.events import Event, EventHit
-from willow.facts import FactCheckResult, FactLedger, FactState
-from willow.foveation import FoveationResult, Foveator
-from willow.research import Citation, ResearchLedger, ResearchState
-from willow.samples import (
+from willow_substrate.connections import ConnectionCandidate, find_connections
+from willow_substrate.context import ContextBuilder, ContextPacket
+from willow_substrate.events import Event, EventHit
+from willow_substrate.facts import FactCheckResult, FactLedger, FactState
+from willow_substrate.foveation import FoveationResult, Foveator
+from willow_substrate.research import Citation, ResearchLedger, ResearchState
+from willow_substrate.samples import (
     EvaluationCheck,
     SampleEvaluation,
     SampleLoadReport,
     evaluate_temporal_sample,
     load_temporal_sample,
 )
-from willow.store import EventStore
-from willow.vista import (
+from willow_substrate.store import EventStore
+from willow_substrate.vista import (
     ReferenceBeam,
     RelationalBackend,
     Vista,

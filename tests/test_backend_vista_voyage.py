@@ -12,7 +12,7 @@ from pathlib import Path
 
 try:
     import numpy as np  # noqa: F401
-    from willow.backends.vista_voyage import (  # noqa: F401
+    from willow_substrate.backends.vista_voyage import (  # noqa: F401
         VoyageEmbedder,
         VoyageVistaBackend,
         _cluster_by_hdbscan,
@@ -24,8 +24,8 @@ except ImportError:
     HAS_VISTA_EXTRA = False
 
 
-from willow.store import EventStore
-from willow.vista import VistaResult
+from willow_substrate.store import EventStore
+from willow_substrate.vista import VistaResult
 
 
 class _MockEmbedder:
@@ -204,12 +204,12 @@ class NoExtrasImportGuardTests(unittest.TestCase):
     def test_import_guard_message_names_the_extras_install(self):
         if HAS_VISTA_EXTRA:
             # In the [vista]-installed environment, the module imports fine.
-            import willow.backends.vista_voyage  # noqa: F401
+            import willow_substrate.backends.vista_voyage  # noqa: F401
         else:
             # Without the extra, the import raises ImportError whose message
             # names the fix. Assert both properties.
             with self.assertRaises(ImportError) as ctx:
-                import willow.backends.vista_voyage  # noqa: F401
+                import willow_substrate.backends.vista_voyage  # noqa: F401
             message = str(ctx.exception)
             self.assertIn("[vista]", message)
             self.assertIn("pip install", message)

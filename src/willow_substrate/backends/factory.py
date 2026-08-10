@@ -10,7 +10,7 @@ flag that pick the backend.
 
 Usage from calling code:
 
-    from willow.backends.factory import make_relational_backend
+    from willow_substrate.backends.factory import make_relational_backend
     backend = make_relational_backend(store)                 # auto
     backend = make_relational_backend(store, name="voyage")  # force
     backend = make_relational_backend(store, name="sparse")  # force floor
@@ -39,8 +39,8 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from willow.store import EventStore
-from willow.vista import VistaBackend
+from willow_substrate.store import EventStore
+from willow_substrate.vista import VistaBackend
 
 
 VALID_NAMES = ("auto", "voyage", "sparse", "default", "hybrid")
@@ -69,7 +69,7 @@ def make_relational_backend(
 
     if resolved == "voyage":
         try:
-            from willow.backends.vista_voyage import VoyageVistaBackend
+            from willow_substrate.backends.vista_voyage import VoyageVistaBackend
         except ImportError as exc:
             raise BackendNotAvailable(
                 "Backend 'voyage' requires the [vista] extra. Install with: "
@@ -88,7 +88,7 @@ def make_relational_backend(
         )
 
     if resolved == "hybrid":
-        from willow.backends.hybrid import HybridRecallBackend
+        from willow_substrate.backends.hybrid import HybridRecallBackend
 
         kwargs = dict(extra)
         if max_events is not None:
@@ -100,7 +100,7 @@ def make_relational_backend(
     # 'auto' resolution: try Voyage if extras + key are both present.
     if _voyage_available_and_configured():
         try:
-            from willow.backends.vista_voyage import VoyageVistaBackend
+            from willow_substrate.backends.vista_voyage import VoyageVistaBackend
 
             kwargs = dict(extra)
             if max_events is not None:
@@ -152,7 +152,7 @@ def _voyage_available_and_configured() -> bool:
     if not os.environ.get("VOYAGE_API_KEY"):
         return False
     try:
-        import willow.backends.vista_voyage  # noqa: F401
+        import willow_substrate.backends.vista_voyage  # noqa: F401
     except ImportError:
         return False
     return True

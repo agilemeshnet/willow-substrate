@@ -5,17 +5,17 @@ stable contracts, then attach the working implementations behind them.
 
 | Existing repository | Destination in the bundle | Disposition |
 |---|---|---|
-| `willow-temporal-ledger` | `willow.store.EventStore` | Replace the monthly JSONL prototype with the concurrent global event contract |
+| `willow-temporal-ledger` | `willow_substrate.store.EventStore` | Replace the monthly JSONL prototype with the concurrent global event contract |
 | `willow-memory` | Markdown and SQLite projection adapters | Retain its human-readable source/index ideas; align them with immutable events |
 | `breathe` | Lifecycle hooks and peripheral grounding | Port after the store/context interfaces stabilise |
-| `cwb` | `willow.context.ContextBuilder` plus retrieval arms | Port the four retrieval channels; expose boot and recovery through tested routes |
+| `cwb` | `willow_substrate.context.ContextBuilder` plus retrieval arms | Port the four retrieval channels; expose boot and recovery through tested routes |
 | `foveation` | Optional foveation backend | Preserve voluntary use; also register it as an authorised CWB retrieval path |
 | `vista` | Optional relational/spatial backend | Reference evidence adapter complete; high-dimensional standalone adapter remains |
 | `willow-engram` | Reflection package | Preserve idea shapes, engrams, torsion, and retroactive importance as derived events |
 | meditation/assimilate repositories | Reflection workers | Make model calls pluggable and always record source-event provenance |
 | `Doozer/spindles/meditation` and `launchpad/jt_meditate.py` | Meditation adapters | Preserve What changed / What connects / What matters; replace hard-coded stores and models |
 | `Doozer/mac-assistant` research lanes | Research provider adapters | Preserve the small queue/result/citation contract; keep voice and Willow handoff optional |
-| `AgileMesh` Fact TTL tools | `willow.facts.FactLedger` plus verifier adapters | Keep entity-owned timing and additive history; replace unsafe scaffold confirmation behavior |
+| `AgileMesh` Fact TTL tools | `willow_substrate.facts.FactLedger` plus verifier adapters | Keep entity-owned timing and additive history; replace unsafe scaffold confirmation behavior |
 | `Doozer/thought-buckets` / Vista | Structural connection backend | Reference waypoint mass, degree normalization, damping, and decision trace ported; production-database adapter remains |
 | `willow-engram` idea-shape tools | Explicit shape adapter | Preserve dimension/value tags and retroactive importance; keep prose as reconstruction material |
 | `willow-graph-client` | AuraDB adapter and policy layer | Replace substring security with typed operations and validated labels |

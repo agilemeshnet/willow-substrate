@@ -4,10 +4,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.context import ContextBuilder
-from willow.foveation import Foveator
-from willow.reflection import meditate
-from willow.store import EventStore
+from willow_substrate.context import ContextBuilder
+from willow_substrate.foveation import Foveator
+from willow_substrate.reflection import meditate
+from willow_substrate.store import EventStore
 
 
 class ContinuityTests(unittest.TestCase):

@@ -24,7 +24,7 @@ from benchmarks.locomo.adapter import (
     load_locomo_conversations,
 )
 from benchmarks.locomo.score import score_manifest
-from willow.store import EventStore
+from willow_substrate.store import EventStore
 
 
 _FIXTURE = {

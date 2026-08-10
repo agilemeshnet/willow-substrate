@@ -13,9 +13,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
-from willow.connections import normalize_shapes
-from willow.events import Event
-from willow.store import EventStore
+from willow_substrate.connections import normalize_shapes
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
 
 
 CHECK_OUTCOMES = {
