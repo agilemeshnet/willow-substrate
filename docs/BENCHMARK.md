@@ -43,42 +43,43 @@ any extras. Install `[vista]` to add the Voyage-mock row.
 
 ## Backends compared
 
+### Backends under test
+
 | Backend | Availability | What it is |
 |---|---|---|
 | `sparse` | Always | The zero-dep `VistaBackend`. TF-IDF-style sparse features with reference-beam ranking; the current default. |
 | `bm25` | Always | Inline Okapi BM25 (k1=1.5, b=0.75), included as the canonical term-frequency baseline. |
-| `voyage-mock` | `[vista]` extra | The `VoyageVistaBackend` from `willow_substrate.backends.vista_voyage`, driven by a deterministic mock embedder that seeds per-topic 32-dim vectors so no API calls are needed. See the honesty note below. |
-| `voyage-real` | Opt-in with `--real-voyage` + `VOYAGE_API_KEY` | The same backend against the actual Voyage-4 API. Charges tokens; typical bird-study run is < $0.0001. |
-| `hybrid` | Always | Reciprocal Rank Fusion (Cormack et al. 2009) of sparse + BM25 + optional dense. Uses `willow_substrate.backends.hybrid.HybridRecallBackend`. Includes the dense sub-backend when `[vista]` is installed. |
+| `hybrid` | Always | Reciprocal Rank Fusion (Cormack et al. 2009) of sparse + BM25. `willow_substrate.backends.hybrid.HybridRecallBackend`. Does NOT include the topic-oracle dense sub-backend even when `[vista]` is installed; that mix would make the row uninterpretable. |
+| `voyage-real` | Opt-in with `--real-voyage` + `VOYAGE_API_KEY` | The real Voyage-4 API. Charges tokens (typical bird-study run < $0.0001). This is the honest dense-retrieval measurement. |
 
-## Honesty about `voyage-mock`
+### Ceilings (upper bounds, NOT backends)
 
-The mock embedder in this benchmark **is not a fair simulation of real
-Voyage-4**. It gets the topic labels for both events and queries at
-construction time and seeds its vectors from those labels, so
-same-topic strings end up cosine-adjacent by design. Its numbers are
-useful because they answer this: **if the embedding step correctly
-recovers the topic each string is about, what recall does the rest of
-the pipeline (HDBSCAN clustering + wave-recall + evidence ranking)
-achieve?** That upper bound tells you whether the algorithmic
-scaffolding around the embeddings can turn good vectors into good
-recall.
+| Ceiling | Availability | What it is |
+|---|---|---|
+| `topic-oracle` | `[vista]` extra | Seeds each vector directly from the same `metadata.topics` field that defines `relevant_keys` in `queries.json`, then runs those vectors through `VoyageVistaBackend`'s clustering + wave pipeline. Not a measurement of dense retrieval; a measurement of what the pipeline can do given labels. |
 
-Real Voyage-4 will not always recover the topic correctly. Its real-run
-numbers on this corpus should sit somewhere between `bm25`/`sparse` and
-`voyage-mock`; the gap between real-voyage and voyage-mock measures
-embedding quality on your specific corpus and query mix. Users who run
-with `--real-voyage` will see that gap on their own numbers.
+Ceilings answer 'is the algorithmic scaffolding the bottleneck?' A backend
+that matches the ceiling means the pipeline is not the limit; the embedder
+is. A backend well under the ceiling means the pipeline needs work.
+Ceilings are NOT interpretable as comparisons against other backends; the
+harness prints them in a separate table with a warning line for that reason.
 
 ## Sample output (from a fresh install with `[vista]`)
 
 ```
-| Backend     | Recall@3 | Recall@5 | MRR   | Median latency (ms) |
-|-------------|----------|----------|-------|---------------------|
-| sparse      |    0.417 |    0.556 | 0.589 |                0.53 |
-| bm25        |    0.389 |    0.500 | 0.625 |                0.01 |
-| voyage-mock |    0.722 |    0.722 | 1.000 |                0.64 |
-| hybrid      |    0.500 |    0.556 | 0.833 |                2.64 |
+## Backends under test
+
+| Backend | Recall@3 | Recall@5 | MRR   | Median latency (ms) |
+|---------|----------|----------|-------|---------------------|
+| sparse  |    0.417 |    0.556 | 0.589 |                0.55 |
+| bm25    |    0.389 |    0.500 | 0.625 |                0.01 |
+| hybrid  |    0.500 |    0.500 | 0.667 |                2.09 |
+
+## Ceilings (upper bounds, not backends)
+
+| Ceiling      | Recall@3 | Recall@5 | MRR   | Median latency (ms) |
+|--------------|----------|----------|-------|---------------------|
+| topic-oracle |    0.722 |    0.722 | 1.000 |                0.62 |
 ```
 
 Read this as:
@@ -86,21 +87,21 @@ Read this as:
 - **`sparse` and `bm25`** are close on this corpus. BM25 is a hair
   faster (tighter formula, smaller feature set) and slightly better on
   MRR. Neither handles paraphrase queries well by design.
-- **`voyage-mock`** is the oracle-embedding upper bound; see the honesty
-  note above. Its numbers tell you what the algorithmic pipeline can
-  do given topic-recovering embeddings, not what real Voyage achieves.
-- **`hybrid`** is the practical best-of-both: fuses sparse + BM25 +
-  (when `[vista]` is installed) the dense mock via Reciprocal Rank
-  Fusion. Its MRR of 0.833 substantially beats either sparse or BM25
-  alone because rank-fusion recovers events that any one backend
-  ranked adequately even if none ranked them first. Latency is ~5x
-  sparse's because three sub-backends run per query; still sub-3ms
-  on this small corpus.
+- **`hybrid`** improves on either component through Reciprocal Rank
+  Fusion at MRR 0.667 vs 0.589/0.625, but the effect is small at this
+  corpus size and cannot be quoted as a comparative result. This
+  benchmark has 9 events, 6 queries, and 18 relevance judgments; a
+  one-judgment change is bigger than most of the gaps in the table.
+  Use [LoCoMo](BENCHMARK_LOCOMO.md) for comparative claims.
+- **`topic-oracle`** in the ceilings table is the pipeline's upper
+  bound given label-recovering vectors. Any real backend at or near
+  this line has hit the algorithmic scaffolding's limit; a real
+  backend well under it (as `hybrid` is here) has room the embedder
+  could take up.
 
-The competitive-retrieval story on this corpus: **hybrid** wins on MRR
-without an API key or paid tokens, and **voyage-real** (when you set
-`--real-voyage`) tests where dense embeddings alone or in the hybrid
-line up against that.
+The competitive-retrieval story on this corpus is a smoke test, not a
+result. `--real-voyage` returns the honest dense-retrieval row.
+Everything comparative belongs on LoCoMo.
 
 ## Methodology notes
 
@@ -123,7 +124,7 @@ The JSON output of `python -m benchmarks.recall --json` is stable across
 releases. CI (once wired) can pin lower bounds on
 `backends[i].mean_recall_at_5` and `backends[i].mrr` and flag any drop.
 Reasonable thresholds today (with `[vista]` installed): sparse Recall@5
->= 0.40, BM25 Recall@5 >= 0.40, voyage-mock Recall@5 >= 0.60. Retune as
+>= 0.40, BM25 Recall@5 >= 0.40, topic-oracle Recall@5 >= 0.60. Retune as
 the corpus and query set grow.
 
 ## Adding a query
@@ -142,7 +143,7 @@ Edit `benchmarks/recall/queries.json`. Each entry has:
 ## Adding a backend
 
 Add a runner class in `benchmarks/recall/harness.py` next to
-`SparseVistaRunner`, `BM25Runner`, `VoyageMockRunner`, `VoyageRealRunner`.
+`SparseVistaRunner`, `BM25Runner`, `TopicOracleRunner`, `VoyageRealRunner`.
 The contract is:
 
 ```python
