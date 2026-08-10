@@ -209,10 +209,26 @@ class SparseVistaRunner:
         return [(ev.event.id, float(ev.score)) for ev in result.evidence][:limit]
 
 
-class VoyageMockRunner:
-    """VoyageVistaBackend driven by _MockVoyageEmbedder (no API calls)."""
+class TopicOracleRunner:
+    """CEILING row (not a backend). Seeds each vector directly from the
+    same metadata.topics field that defines relevant_keys in queries.json,
+    then runs those vectors through VoyageVistaBackend's clustering + wave
+    pipeline. Any real dense embedder will score at or below this: it is
+    the upper bound the pipeline can hit when the embedder recovers the
+    label perfectly.
 
-    name = "voyage-mock"
+    Used to answer 'is the algorithmic scaffolding around the embeddings
+    the bottleneck?' A row that matches this ceiling means the pipeline
+    is not the limit; the embedder is. A row well under it means the
+    pipeline needs work.
+
+    NOT interpretable as a comparison against other backends. Reported
+    in a separate 'Ceilings' block; the harness will refuse to include
+    it in the primary backend table.
+    """
+
+    name = "topic-oracle"
+    is_ceiling = True
 
     def __init__(
         self,
@@ -413,17 +429,21 @@ def run(
         queries = load_queries(queries_path)
         corpus_topics = _corpus_topic_map(corpus_path)
 
-        reports: list[BackendReport] = []
+        backend_reports: list[BackendReport] = []
+        ceiling_reports: list[BackendReport] = []
 
         # Sparse floor
-        reports.append(
+        backend_reports.append(
             _run_one(SparseVistaRunner(store), queries, event_key_to_id, limit)
         )
         # BM25 baseline
-        reports.append(
+        backend_reports.append(
             _run_one(BM25Runner(store), queries, event_key_to_id, limit)
         )
-        # Voyage-mock and hybrid (both use the [vista] extra when available)
+        # topic-oracle CEILING (moved out of the backends table by design):
+        # seeds vectors from metadata.topics, the same field that defines
+        # relevant_keys. Not a measurement of dense retrieval; a measurement
+        # of what the algorithmic pipeline can do given labels.
         has_vista = False
         try:
             import willow_substrate.backends.vista_voyage  # noqa: F401
@@ -433,9 +453,9 @@ def run(
             pass
 
         if has_vista:
-            reports.append(
+            ceiling_reports.append(
                 _run_one(
-                    VoyageMockRunner(
+                    TopicOracleRunner(
                         store,
                         event_key_to_id=event_key_to_id,
                         corpus_topics=corpus_topics,
@@ -447,22 +467,28 @@ def run(
                 )
             )
 
-        # Hybrid: always available. Includes dense sub-backend when [vista]
-        # is installed (with the mock embedder), else fuses sparse + BM25.
-        reports.append(
+        # Hybrid: always available. Fuses sparse + BM25 via RRF. Does NOT
+        # include the topic-oracle dense sub-backend even when [vista] is
+        # installed; mixing an oracle input into hybrid would make the row
+        # itself uninterpretable. Real dense embeddings from Voyage-4 join
+        # only via --real-voyage.
+        backend_reports.append(
             _run_one(
                 HybridRunner(
                     store,
                     event_key_to_id=event_key_to_id,
                     corpus_topics=corpus_topics,
                     queries=queries,
-                    include_dense=has_vista,
+                    include_dense=False,
                 ),
                 queries,
                 event_key_to_id,
                 limit,
             )
         )
+
+        # For the manifest, keep both lists separately labelled.
+        reports = backend_reports + ceiling_reports
 
         # Real Voyage (only when explicitly requested)
         if real_voyage:
@@ -485,7 +511,8 @@ def run(
         "queries_path": str(queries_path),
         "k_at_recall_summary": [3, 5],
         "limit": limit,
-        "backends": [report.summary_dict() for report in reports],
+        "backends": [report.summary_dict() for report in backend_reports],
+        "ceilings": [report.summary_dict() for report in ceiling_reports],
         "per_query": [
             {
                 "backend": report.name,
@@ -508,6 +535,8 @@ def run(
 
 def format_markdown_table(results: dict[str, Any]) -> str:
     lines = [
+        "## Backends under test",
+        "",
         "| Backend | Recall@3 | Recall@5 | MRR | Median latency (ms) |",
         "|---|---|---|---|---|",
     ]
@@ -517,6 +546,27 @@ def format_markdown_table(results: dict[str, Any]) -> str:
             f"{row['recall_at_5']:.3f} | {row['mrr']:.3f} | "
             f"{row['median_latency_ms']:.2f} |"
         )
+    ceilings = results.get("ceilings", [])
+    if ceilings:
+        lines.extend(
+            [
+                "",
+                "## Ceilings (upper bounds, not backends)",
+                "",
+                "These rows use synthetic construction that leaks the answer "
+                "key. They exist to answer 'is the pipeline the bottleneck?', "
+                "not to be compared against real backends.",
+                "",
+                "| Ceiling | Recall@3 | Recall@5 | MRR | Median latency (ms) |",
+                "|---|---|---|---|---|",
+            ]
+        )
+        for row in ceilings:
+            lines.append(
+                f"| {row['name']} | {row['recall_at_3']:.3f} | "
+                f"{row['recall_at_5']:.3f} | {row['mrr']:.3f} | "
+                f"{row['median_latency_ms']:.2f} |"
+            )
     return "\n".join(lines)
 
 

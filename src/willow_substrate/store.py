@@ -104,15 +104,23 @@ def _utc_now() -> str:
 
 
 def _validated_timestamp(value: str) -> str:
-    """Reject caller-supplied timestamps that are not ISO-8601 parseable.
+    """Reject caller-supplied timestamps that are not ISO-8601 parseable
+    AND not timezone-aware.
 
     The timestamp is hashed into every event's payload and the sample suite's
     pass criteria include temporal spans; those temporal claims are only as
-    trustworthy as the field they rest on. Without this check, append() will
-    accept and store 'banana' and hash it into the chain.
+    trustworthy as the field they rest on. Without a syntax check, append()
+    will accept and store 'banana' and hash it into the chain. Without an
+    aware-vs-naive check, a mix of naive and aware timestamps coexists on
+    the ledger and downstream arithmetic (subtracting a naive datetime from
+    an aware one) raises TypeError. The bird-study sample's 'temporal span:
+    56 days' assertion dies on such a mixed ledger.
 
-    The value that parses cleanly is returned unchanged so nothing about the
-    hash of a legitimate timestamp is disturbed.
+    Requiring tzinfo at append is the loud-and-early fix: the caller either
+    passes an aware ISO-8601 form (with 'Z' or an explicit offset, or
+    fromisoformat-parseable with tzinfo attached) or gets a clear error
+    pointing at the fix. The stored string is the caller's original so no
+    legitimate hash is disturbed by normalisation.
     """
     if not isinstance(value, str):
         raise TypeError(
@@ -124,11 +132,17 @@ def _validated_timestamp(value: str) -> str:
     try:
         # Python 3.11+ fromisoformat accepts a wide range of ISO-8601 forms
         # including trailing 'Z' and offsets; that is exactly what we want.
-        datetime.fromisoformat(stripped)
+        parsed = datetime.fromisoformat(stripped)
     except ValueError as exc:
         raise ValueError(
             f"timestamp is not ISO-8601 parseable: {value!r} ({exc})"
         ) from exc
+    if parsed.tzinfo is None:
+        raise ValueError(
+            f"timestamp must be timezone-aware (add 'Z' or an offset like "
+            f"'+00:00'): {value!r}. Naive timestamps mix with aware ones "
+            f"on the ledger and break span arithmetic downstream."
+        )
     return value
 
 

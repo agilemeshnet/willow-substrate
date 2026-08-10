@@ -48,7 +48,15 @@ The alpha does not yet provide:
 - multi-user authentication and authorization;
 - signed federation envelopes;
 - comprehensive disclosure auditing;
-- a hardened remote API.
+- a hardened remote API;
+- an anchor outside the local file. The anchored head_hash and
+  event_count in `willow_meta` raise the cost of tail truncation
+  (a bare `DELETE` no longer passes verify), but a coordinated
+  forgery that also rewrites the two anchor values consistently
+  still returns green. Closure requires an external witness
+  (offsite anchor, time-stamping service, or federation attestation).
+  Do not rely on `willow verify` alone to detect an attacker with
+  local write access AND willingness to update the anchor.
 
 Do not expose the SQLite store, future API, or model-provider adapters directly
 to an untrusted network.
