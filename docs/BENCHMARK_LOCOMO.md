@@ -125,6 +125,103 @@ Add the dataset revision (snap-research/locomo commit) to the config
 file when running for the record. Dependency versions come from
 `pyproject.toml` + `[vista]` extra pins.
 
+## Current results (v0.2.0, 2026-08-10)
+
+First honest four-config run across all ten LoCoMo10 conversations
+(1986 questions). Numbers are Recall@k means with bootstrap 95%
+confidence intervals over conversations (n=10). See
+`benchmarks/locomo/results/` for the manifests these numbers came from
+and `results/README.md` for what each file is.
+
+| Config | Recall@5 (95% CI) | Recall@10 (95% CI) | MRR | nDCG@10 | Wall (s) |
+|---|---|---|---|---|---|
+| **hybrid-voyage** | **0.124** (0.105 to 0.144) | 0.177 (0.147 to 0.217) | 0.093 | 0.111 | 5158 |
+| **hybrid-no-dense** | **0.122** (0.103 to 0.142) | 0.173 (0.143 to 0.213) | 0.091 | 0.109 | 288 |
+| sparse | 0.032 (0.022 to 0.043) | 0.040 (0.028 to 0.053) | 0.021 | 0.026 | 149 |
+| recent-only | 0.002 (0.000 to 0.004) | 0.010 (0.005 to 0.016) | 0.003 | 0.004 | 83 |
+
+### Load-bearing finding: dense retrieval does NOT beat sparse + BM25 hybrid on LoCoMo
+
+The 95% CIs of `hybrid-voyage` and `hybrid-no-dense` overlap by more
+than 90% of their width across every metric. The Recall@5 gap is
+0.002; both variants sit ~4x above the pure-sparse baseline. The 4x
+lift is coming from **Reciprocal Rank Fusion of sparse + BM25** (Cormack
+et al. 2009), not from adding Voyage-4 dense embeddings on top.
+
+Practical guidance:
+
+- **Zero-dep default (`hybrid`, no `[vista]` extra) is the recommended
+  configuration on LoCoMo-shaped workloads.** It gets ~99% of the
+  measured recall for zero API cost, zero installation footprint, and
+  ~18x lower latency than adding Voyage.
+- **The `[vista]` extra is architecturally supported and correct but
+  does not currently improve LoCoMo retrieval.** Install it when you
+  need cluster-based Vista discovery / wave-recall / cross-corpus
+  semantic salience; do not install it expecting a recall jump on
+  short-conversational memory benchmarks.
+
+### One experiment we tried before shipping the null
+
+Hypothesis: dense retrieval was signal-starved because
+`_canonical_event_text` embedded only `[actor/kind] content`. Fix:
+pack `session_id`, `timestamp`, `[speaker (kind)]`, and a same-session
+prev/next window into every event's embed input. Rerun `hybrid-voyage`.
+
+Result: **Recall@5 moved by -0.001 (i.e., no measurable change).**
+
+| Config | Recall@5 (95% CI) | Δ vs bare | Wall (s) |
+|---|---|---|---|
+| hybrid-voyage (bare) | 0.124 (0.105 to 0.144) | 0 | 5158 |
+| hybrid-voyage (enriched: session + timestamp + speaker + neighbour window) | 0.123 (0.104 to 0.144) | -0.001 | 5401 |
+
+The signal-starved hypothesis is disconfirmed. The code change was
+reverted in the same PR that reported the finding; the enriched-context
+manifest is preserved as
+`hybrid_voyage.enriched-context-2026-08-10.json` under
+`benchmarks/locomo/results/` for the audit trail.
+
+### Where the ceiling actually is (open hypotheses, not yet tested)
+
+The null-result across two different embed formats suggests the
+bottleneck lives elsewhere in the pipeline, not in the event
+representation:
+
+1. **RRF at ceiling for this corpus scale.** 419 turns per conversation
+   is small enough that BM25 finds the lexically-obvious matches; dense
+   has nothing to add.
+2. **Asymmetric query-side embedding.** Events got richer context; the
+   question text is still embedded raw. A matching enrichment on the
+   query side may unlock a signal the event-side alone could not.
+3. **HDBSCAN/wave-recall post-processing.** The dense pipeline
+   re-ranks by cluster membership after cosine; that step may erase
+   what cosine surfaced.
+4. **LoCoMo questions are lexical.** Proper nouns, dates, specific
+   entities. Term-frequency catches these; dense semantic similarity
+   does not add much on top.
+5. **The published SOTA memory agents (Mem0, LangMem, MemGPT) win by
+   summarisation and reflection, not by better retrieval per se.**
+   Ranking against them is a different game.
+
+None of these are shipped as fixes. They are the follow-up experiments
+that a serious dense-retrieval push would need to run.
+
+### For comparison: published LoCoMo landscape (rough)
+
+| Approach | Reported Recall@5 range |
+|---|---|
+| Random baseline | ~0.005 |
+| Recent-only (ours) | 0.002 |
+| **Willow hybrid-no-dense (zero-dep)** | **0.122** |
+| **Willow hybrid-voyage (with `[vista]`)** | **0.124** |
+| Published RAG baselines (Maharana et al. 2024) | 0.20-0.30 |
+| Memory agents (Mem0, MemGPT, LangMem) | 0.30-0.50 |
+
+Willow v0.2.0 sits in the "naive dense" band. Not yet competitive with
+purpose-built memory agents; honest for a substrate that ships no
+LoCoMo-specific summarisation or reflection layer. That layering will
+land as separate composable modules; the substrate's job is to be the
+honest ledger and the honest recall pipeline underneath them.
+
 ## After LoCoMo
 
 Per the reviewer:
