@@ -6,7 +6,7 @@
 
 A local, append-only memory layer for long-running work with AI agents. Every
 session writes to a shared, hash-chained ledger. Open a new terminal, switch
-models, come back in three months — the work is still there, with provenance on
+models, come back in three months. The work is still there, with provenance on
 every item.
 
 No cloud. No model calls. No transcript leaves your machine.
@@ -31,14 +31,14 @@ willow init
 export WILLOW_HOME="$PWD/.willow-demo"
 ```
 
-**Terminal A** — record what you're doing:
+**Terminal A**, record what you're doing:
 
 ```bash
 willow record "Investigating the Drosophila connectome and recurrent circuits" \
   --actor peter --session terminal-a --topic connectome
 ```
 
-**Terminal B** — a fresh window, nothing copied across:
+**Terminal B**, a fresh window, nothing copied across:
 
 ```bash
 export WILLOW_HOME="$PWD/.willow-demo"
@@ -92,8 +92,8 @@ willow hook end      # append summation and durable memory
 
 Drop [examples/claude-code-settings.json](examples/claude-code-settings.json)
 into your config and every terminal sharing `WILLOW_HOME` sees what the others
-are doing — a bounded prompt, a headline, tool names, expiring after thirty
-minutes. Full transcripts stay durable underneath.
+are doing (a bounded prompt, a headline, tool names, expiring after thirty
+minutes). Full transcripts stay durable underneath.
 
 Repeated delivery and whole-transcript rescans are idempotent. The adapter
 never calls a model.
@@ -111,7 +111,7 @@ Once the basic loop is running, three capabilities build on it.
 **Deliberate attention.** `willow foveate "recurrent motifs"` narrows from
 sessions to matching events to their neighbourhood, and returns the decision
 trace that got there. `willow vista` widens back out to the surrounding
-context — foveation answers *what am I looking at*, Vista answers *what does
+context. Foveation answers *what am I looking at*; Vista answers *what does
 this belong to*.
 
 **Reflection.** `willow meditate --session X` appends a derived summary with
@@ -160,7 +160,7 @@ eight-week evaluation sample.
 Not yet: AuraDB, high-dimensional Vista adapters, additional model providers,
 generative meditation. Tracked in [docs/MIGRATION.md](docs/MIGRATION.md).
 
-Not yet published to PyPI — install from source.
+Not yet published to PyPI; install from source.
 
 [SECURITY.md](SECURITY.md) lists the security boundaries *and the protections
 that are not implemented yet*. [ETHICS.md](ETHICS.md) states the ethical case,
