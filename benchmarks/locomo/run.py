@@ -243,10 +243,20 @@ def run(
     output_path: Path,
     top_k: int = 20,
     limit_conversations: int | None = None,
+    dataset_dir_override: str | None = None,
 ) -> dict[str, Any]:
+    """Run one config against the LoCoMo corpus.
+
+    ``dataset_dir_override``, when set, replaces ``config.dataset_dir``
+    at call time. This is how the ``--dataset-dir`` CLI flag reaches
+    the run; it keeps the shipped configs generic (they point at the
+    default corpus dir) while letting operators aim a run at, say, the
+    combined locomo10 file without editing anything in-repo.
+    """
     config = RunConfig.load(config_path)
+    effective_dataset_dir = dataset_dir_override or config.dataset_dir
     conversations = load_locomo_conversations(
-        REPO_ROOT / config.dataset_dir
+        REPO_ROOT / effective_dataset_dir
     )
     if limit_conversations is not None:
         conversations = conversations[:limit_conversations]
@@ -270,6 +280,7 @@ def run(
         },
         "top_k": top_k,
         "willow_commit": _willow_commit(),
+        "dataset_dir": effective_dataset_dir,
         "n_conversations": len(conversations),
         "n_questions": len(all_rows),
         "wall_seconds": round(wall_seconds, 2),
@@ -293,12 +304,23 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Cap conversations processed (for smoke tests).",
     )
+    ap.add_argument(
+        "--dataset-dir",
+        type=str,
+        default=None,
+        help=(
+            "Override the config's dataset_dir. Point at a directory "
+            "(walked recursively for *.json) or a single JSON file. "
+            "Path is resolved relative to the repo root."
+        ),
+    )
     args = ap.parse_args(argv)
     manifest = run(
         args.config,
         output_path=args.output,
         top_k=args.top_k,
         limit_conversations=args.limit_conversations,
+        dataset_dir_override=args.dataset_dir,
     )
     print(
         f"wrote {args.output}: "
