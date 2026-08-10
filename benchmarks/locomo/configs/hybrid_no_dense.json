@@ -4,5 +4,6 @@
   "backend_kwargs": {},
   "context_tokens": [256, 512, 1024, 2048],
   "include_final_context": true,
+  "dataset_dir": "benchmarks/locomo/data/upstream/data/locomo10.json",
   "notes": "Fuses sparse + BM25 via RRF. Dense sub-backend is skipped when VOYAGE_API_KEY is not set (which is how this config is intended to run: no dense component even if the extra is installed)."
 }

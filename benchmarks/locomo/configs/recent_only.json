@@ -3,5 +3,6 @@
   "backend": "recent-only",
   "backend_kwargs": {},
   "context_tokens": [256, 512, 1024, 2048],
-  "include_final_context": true
+  "include_final_context": true,
+  "dataset_dir": "benchmarks/locomo/data/upstream/data/locomo10.json"
 }

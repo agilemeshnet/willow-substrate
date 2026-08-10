@@ -4,5 +4,6 @@
   "backend_kwargs": {},
   "context_tokens": [256, 512, 1024, 2048],
   "include_final_context": true,
+  "dataset_dir": "benchmarks/locomo/data/upstream/data/locomo10.json",
   "notes": "Upper bound: always returns the gold turns for the current question. Any real backend that beats this is bug-shaped; anything close is 'you have solved the corpus'. Real numbers should sit between recent-only and oracle."
 }
