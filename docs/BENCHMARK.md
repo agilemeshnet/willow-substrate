@@ -47,9 +47,9 @@ any extras. Install `[vista]` to add the Voyage-mock row.
 |---|---|---|
 | `sparse` | Always | The zero-dep `VistaBackend`. TF-IDF-style sparse features with reference-beam ranking; the current default. |
 | `bm25` | Always | Inline Okapi BM25 (k1=1.5, b=0.75), included as the canonical term-frequency baseline. |
-| `voyage-mock` | `[vista]` extra | The `VoyageVistaBackend` from `willow.backends.vista_voyage`, driven by a deterministic mock embedder that seeds per-topic 32-dim vectors so no API calls are needed. See the honesty note below. |
+| `voyage-mock` | `[vista]` extra | The `VoyageVistaBackend` from `willow_substrate.backends.vista_voyage`, driven by a deterministic mock embedder that seeds per-topic 32-dim vectors so no API calls are needed. See the honesty note below. |
 | `voyage-real` | Opt-in with `--real-voyage` + `VOYAGE_API_KEY` | The same backend against the actual Voyage-4 API. Charges tokens; typical bird-study run is < $0.0001. |
-| `hybrid` | Always | Reciprocal Rank Fusion (Cormack et al. 2009) of sparse + BM25 + optional dense. Uses `willow.backends.hybrid.HybridRecallBackend`. Includes the dense sub-backend when `[vista]` is installed. |
+| `hybrid` | Always | Reciprocal Rank Fusion (Cormack et al. 2009) of sparse + BM25 + optional dense. Uses `willow_substrate.backends.hybrid.HybridRecallBackend`. Includes the dense sub-backend when `[vista]` is installed. |
 
 ## Honesty about `voyage-mock`
 

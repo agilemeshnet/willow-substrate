@@ -6,18 +6,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from willow.adapters.claude_code import (
+from willow_substrate.adapters.claude_code import (
     CaptureReport,
     capture_hook_prompt,
     capture_transcript,
 )
-from willow.context import ContextBuilder
-from willow.engrams import (
+from willow_substrate.context import ContextBuilder
+from willow_substrate.engrams import (
     append_turn_engram,
     crystallize_retroactive_engrams,
 )
-from willow.reflection import meditate_session, summarize_session
-from willow.store import EventStore
+from willow_substrate.reflection import meditate_session, summarize_session
+from willow_substrate.store import EventStore
 
 
 @dataclass(frozen=True)

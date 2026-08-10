@@ -4,11 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.connections import find_connections
-from willow.facts import FactLedger
-from willow.reflection import meditate
-from willow.research import ResearchLedger
-from willow.store import EventStore
+from willow_substrate.connections import find_connections
+from willow_substrate.facts import FactLedger
+from willow_substrate.reflection import meditate
+from willow_substrate.research import ResearchLedger
+from willow_substrate.store import EventStore
 
 
 class ConnectionTests(unittest.TestCase):

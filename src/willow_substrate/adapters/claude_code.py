@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-from willow.events import Event
-from willow.store import EventStore
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
 
 
 @dataclass(frozen=True)

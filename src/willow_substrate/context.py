@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from willow.engrams import peer_engrams
-from willow.events import Event
-from willow.foveation import FoveationResult, Foveator
-from willow.store import EventStore
-from willow.vista import RelationalBackend, VistaBackend, VistaResult
+from willow_substrate.engrams import peer_engrams
+from willow_substrate.events import Event
+from willow_substrate.foveation import FoveationResult, Foveator
+from willow_substrate.store import EventStore
+from willow_substrate.vista import RelationalBackend, VistaBackend, VistaResult
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,7 @@ class ContextBuilder:
         if relational_backend is not None:
             self.relational_backend = relational_backend
         else:
-            from willow.backends.factory import make_relational_backend
+            from willow_substrate.backends.factory import make_relational_backend
 
             self.relational_backend = make_relational_backend(store)
 

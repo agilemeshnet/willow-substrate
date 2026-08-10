@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from willow.store import EventStore
+from willow_substrate.store import EventStore
 
 
 @dataclass(frozen=True)

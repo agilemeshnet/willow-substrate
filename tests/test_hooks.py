@@ -5,10 +5,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.adapters.claude_code import capture_transcript
-from willow.engrams import peer_engrams
-from willow.hooks import handle_claude_hook
-from willow.store import EventStore
+from willow_substrate.adapters.claude_code import capture_transcript
+from willow_substrate.engrams import peer_engrams
+from willow_substrate.hooks import handle_claude_hook
+from willow_substrate.store import EventStore
 
 
 def _write_transcript(path: Path, rows: list[dict]) -> None:

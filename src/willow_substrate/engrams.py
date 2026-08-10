@@ -7,8 +7,8 @@ import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
-from willow.events import Event
-from willow.store import EventStore
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
 
 
 ENGRAM_STOPWORDS = {

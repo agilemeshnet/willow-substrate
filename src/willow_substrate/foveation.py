@@ -12,8 +12,8 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from willow.events import Event, EventHit
-from willow.store import EventStore
+from willow_substrate.events import Event, EventHit
+from willow_substrate.store import EventStore
 
 
 STOPWORDS = {

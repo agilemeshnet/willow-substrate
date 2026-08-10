@@ -17,8 +17,8 @@ Environment (or constructor args):
 
 Usage:
 
-    from willow.store import EventStore
-    from willow.adapters.neo4j import Neo4jGraphAdapter
+    from willow_substrate.store import EventStore
+    from willow_substrate.adapters.neo4j import Neo4jGraphAdapter
 
     store = EventStore()
     with Neo4jGraphAdapter() as adapter:
@@ -65,8 +65,8 @@ except ImportError:  # pragma: no cover
     _HAS_DOTENV = False
 
 
-from willow.events import Event
-from willow.store import EventStore
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
 
 
 DEFAULT_MERGE_BATCH = 500

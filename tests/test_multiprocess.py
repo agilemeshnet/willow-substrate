@@ -15,7 +15,7 @@ class MultiProcessContinuityTests(unittest.TestCase):
             base = [
                 sys.executable,
                 "-m",
-                "willow.cli",
+                "willow_substrate.cli",
                 "--home",
                 str(home),
                 "record",
@@ -42,7 +42,7 @@ class MultiProcessContinuityTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-m",
-                    "willow.cli",
+                    "willow_substrate.cli",
                     "--home",
                     str(home),
                     "verify",
@@ -87,7 +87,7 @@ class MultiProcessContinuityTests(unittest.TestCase):
             base = [
                 sys.executable,
                 "-m",
-                "willow.cli",
+                "willow_substrate.cli",
                 "--home",
                 str(home),
             ]

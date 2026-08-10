@@ -25,8 +25,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable, Mapping, Protocol
 
-from willow.events import Event, EventHit
-from willow.store import EventStore
+from willow_substrate.events import Event, EventHit
+from willow_substrate.store import EventStore
 
 
 STOPWORDS = {

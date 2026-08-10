@@ -8,7 +8,7 @@ with the database-shaped question, "which records have adjacent timestamps?"
 > neighbourhood around it. Wave carries attention farther through that
 > relational field.**
 
-The reference implementation is in `willow.vista`. It is dependency-free,
+The reference implementation is in `willow_substrate.vista`. It is dependency-free,
 local, and enabled by default in Willow context, boot, and deliberate
 foveation.
 

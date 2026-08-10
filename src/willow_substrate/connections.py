@@ -19,9 +19,9 @@ import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
-from willow.events import Event
-from willow.store import EventStore
-from willow.vista import RelationalBackend, VistaBackend, VistaEvidence
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
+from willow_substrate.vista import RelationalBackend, VistaBackend, VistaEvidence
 
 
 CONNECTION_KINDS = {
@@ -214,7 +214,7 @@ def find_connections(
         if relational_backend is not None:
             backend = relational_backend
         else:
-            from willow.backends.factory import make_relational_backend
+            from willow_substrate.backends.factory import make_relational_backend
 
             backend = make_relational_backend(store)
         vista_result = backend.query(

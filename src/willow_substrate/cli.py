@@ -9,20 +9,20 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from willow.adapters.claude_code import capture_transcript
-from willow.connections import find_connections
-from willow.context import ContextBuilder
-from willow.dreaming import dream
-from willow.engrams import crystallize_retroactive_engrams
-from willow.events import Event
-from willow.facts import CHECK_OUTCOMES, EVIDENCE_KINDS, FactLedger
-from willow.foveation import Foveator
-from willow.hooks import handle_claude_hook
-from willow.reflection import meditate, summarize_session
-from willow.research import Citation, ResearchLedger
-from willow.samples import evaluate_temporal_sample, load_temporal_sample
-from willow.store import EventStore
-from willow.vista import VistaBackend, VistaResult
+from willow_substrate.adapters.claude_code import capture_transcript
+from willow_substrate.connections import find_connections
+from willow_substrate.context import ContextBuilder
+from willow_substrate.dreaming import dream
+from willow_substrate.engrams import crystallize_retroactive_engrams
+from willow_substrate.events import Event
+from willow_substrate.facts import CHECK_OUTCOMES, EVIDENCE_KINDS, FactLedger
+from willow_substrate.foveation import Foveator
+from willow_substrate.hooks import handle_claude_hook
+from willow_substrate.reflection import meditate, summarize_session
+from willow_substrate.research import Citation, ResearchLedger
+from willow_substrate.samples import evaluate_temporal_sample, load_temporal_sample
+from willow_substrate.store import EventStore
+from willow_substrate.vista import VistaBackend, VistaResult
 
 
 def _event_dict(event: Event) -> dict[str, Any]:
@@ -759,7 +759,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.without_vista:
                 vista_result = None
             else:
-                from willow.backends.factory import make_relational_backend
+                from willow_substrate.backends.factory import make_relational_backend
 
                 vista_result = make_relational_backend(
                     store, name=getattr(args, "backend", None)
@@ -799,7 +799,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "vista":
-            from willow.backends.factory import make_relational_backend
+            from willow_substrate.backends.factory import make_relational_backend
 
             result = make_relational_backend(
                 store,

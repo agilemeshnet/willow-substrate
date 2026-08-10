@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from willow.facts import FactLedger
-from willow.research import Citation, ResearchLedger
-from willow.store import EventStore
+from willow_substrate.facts import FactLedger
+from willow_substrate.research import Citation, ResearchLedger
+from willow_substrate.store import EventStore
 
 
 class ResearchLedgerTests(unittest.TestCase):

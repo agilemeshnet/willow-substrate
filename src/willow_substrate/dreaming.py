@@ -7,8 +7,8 @@ import math
 import re
 from collections import Counter
 
-from willow.events import Event
-from willow.store import EventStore
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
 
 
 DREAM_STOPWORDS = {

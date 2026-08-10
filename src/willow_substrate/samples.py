@@ -8,9 +8,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from willow.connections import find_connections
-from willow.events import Event
-from willow.store import EventStore
+from willow_substrate.connections import find_connections
+from willow_substrate.events import Event
+from willow_substrate.store import EventStore
 
 
 TEMPORAL_SAMPLE_SCHEMA = "willow.temporal-sample/v1"
