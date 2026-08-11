@@ -123,17 +123,32 @@ distant material. These are labelled proposals, not claims. Corrected or
 expired material is never allowed to seed one, and vector similarity is never
 relabelled as structural evidence.
 
-Optional backends add richer recall:
+Optional backends add capability that the zero-dep default does not carry:
 
 ```bash
-pip install -e ".[vista]"   # dense-embedding Vista + Wave recall
-pip install -e ".[neo4j]"   # optional AuraDB graph projection
-pip install -e ".[full]"    # the whole stack
+pip install -e ".[vista]"   # Voyage-4 dense embeddings for cluster-based
+                            # Vista discovery, HDBSCAN, and wave-recall.
+pip install -e ".[neo4j]"   # One-way AuraDB projection for graph queries.
+pip install -e ".[full]"    # Everything.
 ```
 
-See [docs/EXTRAS.md](docs/EXTRAS.md) for what ships today and
-[docs/BENCHMARK.md](docs/BENCHMARK.md) for how the backends compare on a fixed
-corpus.
+**Retrieval-recall recommendation as of v0.2.0**: the zero-dep default
+(sparse + BM25 hybrid, no extras) is what to install for read-side
+recall on short-conversational memory. It measures at Recall@5 = 0.122
+on the LoCoMo benchmark. Adding `[vista]` on top measures at Recall@5
+= 0.124 on the same benchmark; the confidence intervals overlap by
+more than 90%. Install `[vista]` when you want cluster-based Vista
+discovery, wave-recall, or cross-corpus semantic salience. Do not
+install it expecting a retrieval-recall jump. See
+[docs/BENCHMARK_LOCOMO.md](docs/BENCHMARK_LOCOMO.md) for the full
+comparison, the bootstrap CIs, and the null-result experiment we ran
+before shipping this guidance.
+
+See [docs/EXTRAS.md](docs/EXTRAS.md) for what ships today,
+[docs/BENCHMARK.md](docs/BENCHMARK.md) for how the backends compare on
+a fast fixed corpus (smoke test), and
+[docs/BENCHMARK_LOCOMO.md](docs/BENCHMARK_LOCOMO.md) for the honest
+comparative-retrieval measurement.
 
 ## Does it actually work
 

@@ -1,4 +1,5 @@
 .venv/
+.venv-*/
 .willow/
 .willow-demo/
 .DS_Store
@@ -8,3 +9,7 @@ __pycache__/
 .pytest_cache/
 dist/
 build/
+
+# LoCoMo benchmark: dataset is a snap-research checkout, not vendored here.
+# Results ARE committed (see benchmarks/locomo/results/README.md).
+benchmarks/locomo/data/
