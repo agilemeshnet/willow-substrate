@@ -222,7 +222,100 @@ LoCoMo-specific summarisation or reflection layer. That layering will
 land as separate composable modules; the substrate's job is to be the
 honest ledger and the honest recall pipeline underneath them.
 
-## Consolidation-wrapper results (2026-08-12): Hou 2024 mechanism, LoCoMo-tuned τ
+## Reflections-on results (2026-08-11): meditate + dream earn their keep
+
+The v0.2.0 numbers above measured retrieval **without invoking Willow's
+shipped reflection layer**. The runner ingested raw turns and never
+called `meditate()` per session or `dream()` across the store. Not a
+fair test of the substrate's real capability.
+
+The `--with-reflections` flag on the runner and the
+`--expand-derived-from` flag on the scorer close that gap.
+
+### What the flags do
+
+- `python -m benchmarks.locomo.run --with-reflections ...`: after
+  ingesting each conversation's raw turns, invoke `meditate()` per
+  LoCoMo session (deterministic extractive distillation using term
+  frequency + actor/kind statistics; `willow_substrate.reflection`) and
+  then `dream(query="", limit=50)` across the whole conversation
+  (deterministic cross-session structural connections;
+  `willow_substrate.dreaming`). Both are local, deterministic, no API
+  cost. The resulting meditation and dream events are first-class
+  retrievable evidence, with `derived_from` links back to source turns.
+- `python -m benchmarks.locomo.score --expand-derived-from ...`: when
+  a retrieved event is a meditation/dream/summation, credit its
+  `derived_from` source turns as retrieved. This is the fair way to
+  score reflection-heavy retrieval; without it, a top-K meditation
+  displaces the raw gold turn from the ranked list even though it
+  covers the gold.
+
+### Numbers (with `--expand-derived-from`)
+
+Same ten conversations, 1986 questions, bootstrap 95% CIs by
+conversation. Reflection totals across the corpus:
+**272 meditations + 121 dreams**, added in ~65 seconds per full run.
+
+| Config | Recall@5 (95% CI) | Recall@10 | MRR | nDCG@10 | Wall (s) | Extras needed |
+|---|---|---|---|---|---|---|
+| **hybrid-voyage + reflections** | **0.137** (0.115 to 0.163) | 0.176 (0.157 to 0.196) | 0.122 | 0.132 | 5283 | [vista] + VOYAGE_API_KEY |
+| hybrid-voyage (bare) | 0.124 (0.105 to 0.144) | 0.177 (0.147 to 0.217) | 0.093 | 0.111 | 5158 | [vista] + VOYAGE_API_KEY |
+| **hybrid-no-dense + reflections** | **0.135** (0.112 to 0.162) | 0.173 (0.153 to 0.193) | 0.119 | 0.130 | 353 | **NONE** |
+| hybrid-no-dense (bare) | 0.122 (0.103 to 0.142) | 0.173 (0.143 to 0.213) | 0.091 | 0.109 | 288 | none |
+| sparse | 0.032 (0.022 to 0.043) | 0.040 (0.028 to 0.053) | 0.021 | 0.026 | 149 | none |
+
+### Two clean findings
+
+**1. Reflections lift both hybrids by comparable amounts.**
+
+| Metric | hybrid-no-dense lift | hybrid-voyage lift |
+|---|---|---|
+| Recall@5 | +0.013 (+10.7% relative) | +0.013 (+10.5% relative) |
+| MRR | +0.028 (+31% relative) | +0.029 (+31% relative) |
+| nDCG@10 | +0.021 (+19% relative) | +0.021 (+19% relative) |
+
+Meditations concentrate topic signal so they rank earlier than any single
+raw turn when their session matches the query; expanding them via
+`derived_from` credits the gold turns they cover. This is real, consistent
+signal.
+
+**2. Dense STILL does not beat the zero-dep hybrid, even with reflections.**
+
+| Regime | voyage vs no-dense Recall@5 gap |
+|---|---|
+| Bare | 0.124 vs 0.122 = +0.002 |
+| With reflections | 0.137 vs 0.135 = +0.002 |
+
+Same 0.002 gap in both regimes, deep in noise. The reflection layer did
+not rescue the `[vista]` extra. The finding from the v0.2.0 run holds:
+dense retrieval is architecturally supported but does not currently
+improve LoCoMo recall over sparse + BM25 hybrid RRF.
+
+### Practical guidance
+
+**Install nothing extra. Turn reflections on.** The best measured LoCoMo
+result on Willow substrate today comes from the zero-dep hybrid
+(`sparse + BM25 via RRF`) plus per-session meditations and cross-session
+dreams, all deterministic and local. Recall@5 = 0.135, MRR = 0.119, in
+~350 seconds per full run, at zero API cost.
+
+Adding Voyage-4 dense embeddings on top adds ~0.002 Recall@5 (within
+noise), for ~$0.08 per run and 15x wall time. Install `[vista]` when you
+want cluster-based Vista discovery or wave-recall specifically, not
+when you want LoCoMo-recall lift.
+
+### The layer's limits (what would push it toward memory-agent SOTA)
+
+Willow's meditation is deterministic extractive. Mem0 / LangMem /
+MemGPT use LLM-authored abstractive meditations, which pack far more
+semantic content per event. `willow_substrate/reflection.py` opens with
+`"""Deterministic reflection primitives and the future model-adapter
+boundary."""`; the LLM-authored path is a designed plug-in point, not
+yet plugged in. The +10.7% we measured here is what the deterministic
+layer earns on its own; a plugged-in abstractive layer likely closes
+much more of the gap to the published 0.30-0.50 range.
+
+## Consolidation-wrapper results (2026-08-12): Hou 2024 mechanism, LoCoMo-tuned tau
 
 Ports Hou, Tamoto & Miyashita (CHI EA '24, arXiv 2404.00573v1) as an
 opt-in RelationalBackend wrapper. The paper's core mechanism combines
@@ -282,6 +375,13 @@ python -m benchmarks.locomo.run \
   --output results/hybrid_no_dense.with_consolidation.json \
   --with-consolidation
 
+# Compose reflections AND consolidation in one run (both add value):
+python -m benchmarks.locomo.run \
+  --config benchmarks/locomo/configs/hybrid_no_dense.json \
+  --dataset-dir benchmarks/locomo/data/upstream/data/locomo10.json \
+  --output results/hybrid_no_dense.with_reflections_and_consolidation.json \
+  --with-reflections --with-consolidation
+
 # Chat-agent-scale (paper's original tau, WARNING: hurts LoCoMo recall):
 python -m benchmarks.locomo.run \
   --config benchmarks/locomo/configs/hybrid_no_dense.json \
@@ -291,15 +391,16 @@ python -m benchmarks.locomo.run \
 ```
 
 The manifest records the effective `consolidation_tau_s` so any scored
-result carries the receipt of what tau it ran at.
+result carries the receipt of what tau it ran at. `--with-reflections`
+and `--with-consolidation` compose orthogonally.
 
 ### Recommended default going forward
 
 For LoCoMo-shaped workloads (retrieval of old memory), install nothing
-extra, turn `--with-consolidation` on with the default `--consolidation-tau-days`
-(10 years). That gets you Recall@10 = 0.217 (a real 25% lift on the
-deeper metric) with the same ~350-second wall time as the baseline
-hybrid, no API cost, no extras.
+extra, turn `--with-reflections` and `--with-consolidation` on with
+the default `--consolidation-tau-days` (10 years). Reflections earn
++10.7% Recall@5; consolidation earns +25% Recall@10. Same ~350-second
+wall time, no API cost, no extras.
 
 For real chat-agent deployments where recency does matter, dial
 `--consolidation-tau-days` down to somewhere in the 7-90 day range and

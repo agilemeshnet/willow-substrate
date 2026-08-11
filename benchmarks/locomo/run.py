@@ -35,7 +35,10 @@ from benchmarks.locomo.adapter import (  # noqa: E402
     LocomoConversation,
     ingest_into_store,
     load_locomo_conversations,
+    session_ids_for,
 )
+from willow_substrate.reflection import meditate  # noqa: E402
+from willow_substrate.dreaming import dream  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -212,19 +215,75 @@ def _pack_result(events, scores):
     )
 
 
+def _run_reflections(store: EventStore, conversation: LocomoConversation) -> dict[str, int]:
+    """Invoke Willow's shipped reflection layer over one conversation's store.
+
+    Per-session meditate() collapses each LoCoMo session into a
+    meditation event with derived_from pointing at that session's turns.
+    Cross-session dream() proposes structural connections between
+    distant material; those dreams' derived_from tuples point at the two
+    connected source events, so a retrieval that lands a dream still
+    ties back to gold via the derived-from chain when the scorer opts in.
+
+    Both are local, deterministic, no API cost. Returns a small telemetry
+    dict recorded in the run manifest.
+    """
+    meditations = 0
+    for session_id in session_ids_for(conversation):
+        try:
+            meditate(store, session_id)
+            meditations += 1
+        except ValueError:
+            # Empty session (all turns dropped as blank); skip cleanly.
+            pass
+    # limit=50 lets dream propose enough cross-session bridges to matter on
+    # LoCoMo's ~19-session conversations without exploding into every pair.
+    dreams = len(dream(store, query="", limit=50))
+    return {"meditations": meditations, "dreams": dreams}
+
+
+def _derived_from_for(store: EventStore, event_ids: list[str]) -> dict[str, list[str]]:
+    """Look up derived_from tuples for a list of event ids.
+
+    Recorded per row in the manifest so the scorer can expand
+    meditation/dream retrievals to their source turns without needing to
+    re-open the store (which is a per-conversation tempdir and is gone by
+    the time scoring runs).
+    """
+    if not event_ids:
+        return {}
+    ids = set(event_ids)
+    lookup: dict[str, list[str]] = {}
+    for event in store.events(limit=10_000, active_only=True):
+        if event.id in ids and event.derived_from:
+            lookup[event.id] = list(event.derived_from)
+    return lookup
+
+
 def run_conversation(
     conversation: LocomoConversation,
     config: RunConfig,
     *,
     top_k: int,
+    with_reflections: bool = False,
     with_consolidation: bool = False,
     consolidation_tau_s: float | None = None,
-) -> list[dict[str, Any]]:
-    """Score every question in one conversation. Returns per-query rows."""
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Score every question in one conversation. Returns per-query rows
+    and a telemetry dict about the reflection pass (empty if disabled).
+
+    ``with_reflections`` and ``with_consolidation`` compose orthogonally:
+    reflections adds meditation + dream events to the store BEFORE the
+    backend is built; consolidation wraps the resulting backend in a
+    time-decay + recall-frequency scoring layer per Hou et al. 2024.
+    """
     rows: list[dict[str, Any]] = []
+    reflection_stats: dict[str, int] = {}
     with tempfile.TemporaryDirectory() as tmp:
         store = EventStore(Path(tmp))
         ingest_into_store(store, conversation)
+        if with_reflections:
+            reflection_stats = _run_reflections(store, conversation)
         backend = _make_backend(
             store, config, conversation,
             with_consolidation=with_consolidation,
@@ -257,12 +316,14 @@ def run_conversation(
 
             context_ms = 0.0
             per_budget: list[dict[str, Any]] = []
+            in_context_ids_all: set[str] = set()
             if composer is not None:
                 for budget in config.context_tokens:
                     ct0 = time.perf_counter()
                     packet = composer.build(q.text, token_budget=budget)
                     context_ms = (time.perf_counter() - ct0) * 1000.0
                     in_context_ids = list(packet.event_ids)
+                    in_context_ids_all.update(in_context_ids)
                     per_budget.append(
                         {
                             "context_tokens": budget,
@@ -270,6 +331,13 @@ def run_conversation(
                             "context_latency_ms": round(context_ms, 2),
                         }
                     )
+
+            # Record derived_from for anything the scorer may need to
+            # expand: retrieved ids + any id that landed in the final
+            # context. Only meditations/dreams/summations carry a
+            # non-empty tuple, so this stays cheap.
+            interesting_ids = list(set(retrieved_ids) | in_context_ids_all)
+            derived_map = _derived_from_for(store, interesting_ids)
 
             rows.append(
                 {
@@ -281,9 +349,10 @@ def run_conversation(
                     "retrieved_event_ids": retrieved_ids,
                     "retrieval_latency_ms": round(retrieval_ms, 2),
                     "per_budget": per_budget,
+                    "derived_from": derived_map,
                 }
             )
-    return rows
+    return rows, reflection_stats
 
 
 def run(
@@ -293,6 +362,7 @@ def run(
     top_k: int = 20,
     limit_conversations: int | None = None,
     dataset_dir_override: str | None = None,
+    with_reflections: bool = False,
     with_consolidation: bool = False,
     consolidation_tau_s: float | None = None,
 ) -> dict[str, Any]:
@@ -304,12 +374,21 @@ def run(
     default corpus dir) while letting operators aim a run at, say, the
     combined locomo10 file without editing anything in-repo.
 
-    ``with_consolidation``: when True, wrap the backend in a
+    ``with_reflections``, when True, runs Willow's shipped meditate()
+    per session and dream() across the store after ingest. The reflection
+    events become first-class retrievable evidence; the scorer's
+    ``--expand-derived-from`` flag then credits meditation/dream
+    retrievals to their source turns when computing recall.
+
+    ``with_consolidation``, when True, wraps the backend in a
     ConsolidationBackend applying time-decay + recall-frequency scoring
     per Hou et al. 2024 (arXiv 2404.00573). Recall statistics live in
     a per-conversation sidecar file (tempdir; disposed after each
     conversation), so recall counting is within-conversation only in
     this benchmark, which matches the paper's evaluation semantics.
+
+    The two flags compose: use both at once to measure the substrate's
+    full reflection + consolidation stack.
     """
     config = RunConfig.load(config_path)
     effective_dataset_dir = dataset_dir_override or config.dataset_dir
@@ -320,15 +399,18 @@ def run(
         conversations = conversations[:limit_conversations]
 
     all_rows: list[dict[str, Any]] = []
+    reflection_totals = {"meditations": 0, "dreams": 0}
     t0 = time.perf_counter()
     for conversation in conversations:
-        all_rows.extend(
-            run_conversation(
-                conversation, config, top_k=top_k,
-                with_consolidation=with_consolidation,
-                consolidation_tau_s=consolidation_tau_s,
-            )
+        rows, stats = run_conversation(
+            conversation, config, top_k=top_k,
+            with_reflections=with_reflections,
+            with_consolidation=with_consolidation,
+            consolidation_tau_s=consolidation_tau_s,
         )
+        all_rows.extend(rows)
+        for key, value in stats.items():
+            reflection_totals[key] = reflection_totals.get(key, 0) + value
     wall_seconds = time.perf_counter() - t0
 
     manifest = {
@@ -343,6 +425,8 @@ def run(
         "top_k": top_k,
         "willow_commit": _willow_commit(),
         "dataset_dir": effective_dataset_dir,
+        "with_reflections": with_reflections,
+        "reflection_totals": reflection_totals if with_reflections else None,
         "with_consolidation": with_consolidation,
         "consolidation_tau_s": consolidation_tau_s if with_consolidation else None,
         "n_conversations": len(conversations),
@@ -376,6 +460,16 @@ def main(argv: list[str] | None = None) -> int:
             "Override the config's dataset_dir. Point at a directory "
             "(walked recursively for *.json) or a single JSON file. "
             "Path is resolved relative to the repo root."
+        ),
+    )
+    ap.add_argument(
+        "--with-reflections",
+        action="store_true",
+        help=(
+            "Run Willow's shipped meditate() per session and dream() "
+            "across the store after ingesting each conversation. The "
+            "meditation and dream events become first-class retrievable "
+            "evidence with derived_from links back to source turns."
         ),
     )
     ap.add_argument(
@@ -413,8 +507,19 @@ def main(argv: list[str] | None = None) -> int:
         top_k=args.top_k,
         limit_conversations=args.limit_conversations,
         dataset_dir_override=args.dataset_dir,
+        with_reflections=args.with_reflections,
         with_consolidation=args.with_consolidation,
         consolidation_tau_s=tau_s,
+    )
+    reflection_note = (
+        f" reflections={manifest['reflection_totals']}"
+        if manifest.get("with_reflections") and manifest.get("reflection_totals")
+        else ""
+    )
+    consolidation_note = (
+        f" consolidation_tau_days={args.consolidation_tau_days}"
+        if manifest.get("with_consolidation")
+        else ""
     )
     print(
         f"wrote {args.output}: "
@@ -422,6 +527,7 @@ def main(argv: list[str] | None = None) -> int:
         f"conversations={manifest['n_conversations']} "
         f"questions={manifest['n_questions']} "
         f"wall_seconds={manifest['wall_seconds']}"
+        f"{reflection_note}{consolidation_note}"
     )
     return 0
 

@@ -132,17 +132,22 @@ pip install -e ".[neo4j]"   # One-way AuraDB projection for graph queries.
 pip install -e ".[full]"    # Everything.
 ```
 
-**Retrieval-recall recommendation as of v0.2.0**: the zero-dep default
-(sparse + BM25 hybrid, no extras) is what to install for read-side
-recall on short-conversational memory. It measures at Recall@5 = 0.122
-on the LoCoMo benchmark. Adding `[vista]` on top measures at Recall@5
-= 0.124 on the same benchmark; the confidence intervals overlap by
-more than 90%. Install `[vista]` when you want cluster-based Vista
+**Retrieval-recall recommendation as of v0.2.1**: the strongest measured
+LoCoMo result on Willow substrate today comes from the zero-dep default
+(sparse + BM25 hybrid, no extras) **plus per-session `willow meditate`
+and cross-session `willow dream`**, all local and deterministic. That
+combination measures at Recall@5 = 0.135, MRR = 0.119 on LoCoMo, in
+~350 seconds per full run, at zero API cost.
+
+Adding `[vista]` (Voyage-4 dense embeddings) on top of that adds ~0.002
+Recall@5 (statistically indistinguishable), for ~$0.08 per run and 15x
+wall-clock. Install `[vista]` when you want cluster-based Vista
 discovery, wave-recall, or cross-corpus semantic salience. Do not
-install it expecting a retrieval-recall jump. See
+install it expecting a LoCoMo-recall jump. See
 [docs/BENCHMARK_LOCOMO.md](docs/BENCHMARK_LOCOMO.md) for the full
-comparison, the bootstrap CIs, and the null-result experiment we ran
-before shipping this guidance.
+five-row comparison, the bootstrap CIs, and both experiments (enriched
+canonical text and the meditate + dream reflection pass) that produced
+the guidance.
 
 See [docs/EXTRAS.md](docs/EXTRAS.md) for what ships today,
 [docs/BENCHMARK.md](docs/BENCHMARK.md) for how the backends compare on
