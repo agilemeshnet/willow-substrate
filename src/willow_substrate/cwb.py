@@ -30,8 +30,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from willow_substrate.banks import Bank, load_banks
 from willow_substrate.events import Event
 from willow_substrate.prosoche import ProsocheMonitor, SourceBand
+from willow_substrate.salience import (
+    RECENCY_HALF_LIFE_DAYS,
+    is_standing,
+    score_events,
+)
 from willow_substrate.store import EventStore
 from willow_substrate.vista import VistaResult
 
@@ -56,6 +62,7 @@ class ContextWindow:
     """
 
     query: str
+    banks: tuple[Bank, ...]
     standing: tuple[Event, ...]
     foreground: tuple[Event, ...]
     vista: VistaResult | None
@@ -65,7 +72,11 @@ class ContextWindow:
 
     @property
     def all_event_ids(self) -> tuple[str, ...]:
-        """Deduplicated ids across all layers, in importance order."""
+        """Deduplicated event ids across all EVENT layers, in importance order.
+
+        Banks are files, not events, so they do not appear here; callers who
+        want them should read ``window.banks`` directly.
+        """
         seen: dict[str, None] = {}
         for event in self.standing:
             seen[event.id] = None
@@ -115,9 +126,27 @@ class ContextWindowBuilder:
         wave_hops: int | None = None,
         include_standing: bool = True,
         include_wave: bool = True,
+        include_banks: bool = True,
     ) -> ContextWindow:
-        """Assemble the four-plus-one layered context for one query."""
+        """Assemble the five-layer context window for one query.
+
+        Layers, most-durable to most-ephemeral:
+        - banks: files loaded from WILLOW_HOME (identity.md, ground.md,
+          optional banks/*.md); included whole, cost paid before flow.
+        - standing: events flagged as standing/foundational; retrieved
+          regardless of query relevance.
+        - foreground: top-salience events by the five-signal scorer.
+        - vista: single-hop retrieval seeded by query text + foreground ids.
+        - wave: multi-hop damped spreading activation from same seeds.
+        - prosoche: freshness colours for registered data sources.
+        """
         trace: list[str] = []
+
+        banks = load_banks(self.store.home) if include_banks else ()
+        trace.append(
+            f"banks: {len(banks)} constitutional files "
+            f"({sum(b.estimated_tokens for b in banks)} tokens floor)"
+        )
 
         standing = (
             self._standing_events() if include_standing else ()
@@ -125,8 +154,11 @@ class ContextWindowBuilder:
         trace.append(f"standing: {len(standing)} pinned events")
 
         k = foreground_k if foreground_k is not None else self.foreground_default_k
-        foreground = self._foreground_events(k)
-        trace.append(f"foreground: {len(foreground)} top-salience events")
+        foreground = self._foreground_events(k, query=query)
+        trace.append(
+            f"foreground: {len(foreground)} top-salience events "
+            f"(via five-signal scorer)"
+        )
 
         # Vista layer: seed from foreground so the retrieval reflects
         # 'what I am attending to now' as well as 'what matches the query'.
@@ -163,6 +195,7 @@ class ContextWindowBuilder:
 
         return ContextWindow(
             query=query,
+            banks=banks,
             standing=standing,
             foreground=foreground,
             vista=vista,
@@ -172,23 +205,35 @@ class ContextWindowBuilder:
         )
 
     def _standing_events(self) -> tuple[Event, ...]:
-        """Return every active event whose metadata sets standing=True."""
+        """Return every active event flagged as standing / foundational.
+
+        Uses ``willow_substrate.salience.is_standing`` so the SAME rule
+        that decides standing for the retrieval-time scorer decides it
+        here. Keeps the two surfaces in agreement without duplicating
+        the flag-check logic.
+        """
         return tuple(
             event
             for event in self.store.events(limit=10_000, active_only=True)
-            if bool(event.metadata.get("standing"))
+            if is_standing(event.metadata)
         )
 
-    def _foreground_events(self, k: int) -> tuple[Event, ...]:
-        """Top-k events ranked by metadata.salience, then by recency.
+    def _foreground_events(
+        self, k: int, *, query: str = ""
+    ) -> tuple[Event, ...]:
+        """Top-k events by the five-signal salience scorer.
 
-        Events with no salience metadata default to 0.0. Ties break
-        towards the more recent event (higher seq).
+        Delegates to ``willow_substrate.salience.score_events`` so
+        ranking is explainable (standing + citation + reflection +
+        recency + query) rather than a single opaque signal. A stored
+        ``metadata.salience`` float still contributes when present via
+        the standing branch of the scorer, but is no longer the sole
+        input, so callers who never set that field also get a
+        principled ranking.
         """
-        active = self.store.events(limit=10_000, active_only=True)
-        scored = [
-            (float(event.metadata.get("salience", 0.0)), event.seq, event)
-            for event in active
-        ]
-        scored.sort(key=lambda triple: (triple[0], triple[1]), reverse=True)
-        return tuple(event for _, _, event in scored[:k])
+        active = list(self.store.events(limit=10_000, active_only=True))
+        if not active:
+            return ()
+        scores = score_events(active, query=query)
+        active.sort(key=lambda ev: -scores[ev.id].total)
+        return tuple(active[:k])

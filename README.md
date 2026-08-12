@@ -106,22 +106,65 @@ Five parallel sessions, no LLM required:
 
 ## Going further
 
-Once the basic loop is running, three capabilities build on it.
+Once the basic loop is running, four capabilities compose on the ledger.
+Each stands alone; each also earns more when the others are present.
 
-**Deliberate attention.** `willow foveate "recurrent motifs"` narrows from
-sessions to matching events to their neighbourhood, and returns the decision
-trace that got there. `willow vista` widens back out to the surrounding
-context. Foveation answers *what am I looking at*; Vista answers *what does
+**Import.** `willow import ./notes/` ingests a Markdown directory as
+immutable events. Idempotent by content (re-import appends nothing);
+changed files append a supersession so file history accumulates in the
+hash chain; frontmatter becomes metadata; `[[wikilinks]]` become Vista
+waypoints, so a cross-referencing corpus arrives with its relational
+neighbourhood intact.
+
+**Deliberate attention.** `willow foveate "recurrent motifs"` narrows
+from sessions to matching events to their neighbourhood, and returns
+the decision trace that got there. `willow vista` widens back out.
+Foveation answers *what am I looking at*; Vista answers *what does
 this belong to*.
 
-**Reflection.** `willow meditate --session X` appends a derived summary with
-`derived_from` provenance. `willow engram` records that a later insight made an
-earlier event matter, without editing the earlier event.
+**Reflection.** `willow meditate --session X` appends a derived summary
+with `derived_from` provenance. `willow dream "recurrent motifs"`
+proposes cross-session connections (labelled proposals, not claims;
+corrected/expired material is never allowed to seed one). `willow
+engram` records that a later insight made an earlier event matter,
+without editing the earlier event.
 
-**Association.** `willow dream "recurrent motifs"` proposes connections across
-distant material. These are labelled proposals, not claims. Corrected or
-expired material is never allowed to seed one, and vector similarity is never
-relabelled as structural evidence.
+**Explainable ranking.** `willow salience [query] --explain` orders
+active experience by five named signals (standing, wikilink citation,
+reflection kind, recency half-life, query overlap) so a truncation
+ordering can be defended rather than trusted. Standing material is
+*retrieved* regardless of query, not merely ranked; the sessions that
+most need a hard-won rule are the ones that were not thinking about it.
+
+### The stack, composed
+
+Willow substrate offers seven composable primitives around one ledger.
+Read this as a menu: install nothing extra, and pick which arms you
+turn on per call.
+
+| Layer | Ships in | What it does |
+|---|---|---|
+| Ledger | v0.2.0 | Append-only, hash-chained, tamper-detectable; corrections supersede rather than delete. |
+| Hybrid retrieval | v0.2.0 | Reciprocal Rank Fusion of sparse + BM25. Zero-dep default; recommended read floor. |
+| Reflection layer | v0.2.1 | `meditate()` per session, `dream()` across the store. Adds derived events with `derived_from` provenance. |
+| Consolidation wrapper | v0.2.1 | Time-decay + recall-frequency scoring per Hou et al. 2024 (arXiv 2404.00573). Sidecar recall-stats table; opt-in. |
+| Context Window Builder | v0.2.1 | Layered per-query context assembly: banks + standing + foreground + vista + wave + prosoche. `ContextWindowBuilder` in `willow_substrate.cwb`. |
+| Constitutional banks | v0.2.1 | `IDENTITY.md` + `GROUND.md` + optional `banks/*.md` loaded whole at boot, never truncated. Edit files with `ls` and `cat`. |
+| Salience scorer | v0.2.1 | Explainable five-signal ranking (standing + citation + reflection + recency + query) so truncation is a decision, not an accident. |
+
+**The recommended composed stack for a stranger installing willow-substrate today:**
+
+```bash
+pip install -e .
+willow init                        # scaffolds IDENTITY.md and GROUND.md
+willow import ./notes              # bring existing Markdown into the ledger
+willow record "starting a new arc" # normal use writes events
+willow boot                        # boot context = banks + flow, ranked
+```
+
+Every arm above is deterministic and local. Add `[vista]` extra when
+you want cluster-based Vista discovery / wave-recall; do not install
+it expecting a LoCoMo-recall jump (see benchmark below).
 
 Optional backends add capability that the zero-dep default does not carry:
 

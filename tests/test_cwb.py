@@ -163,8 +163,59 @@ class ContextWindowBuilderTests(unittest.TestCase):
     def test_trace_records_each_layer(self):
         window = self.cwb.build("cats", foreground_k=3)
         joined = " | ".join(window.trace)
-        for word in ("standing", "foreground", "vista", "wave"):
+        for word in ("banks", "standing", "foreground", "vista", "wave"):
             self.assertIn(word, joined)
+
+    def test_banks_field_populated_from_home_files(self):
+        """Cohesion: ContextWindow surfaces banks/*.md alongside the four
+        event layers so consumers see the same constitutional floor
+        ContextBuilder.boot() delivers."""
+        (self.home / "IDENTITY.md").write_text(
+            "I am Peter's ledger.", encoding="utf-8"
+        )
+        (self.home / "GROUND.md").write_text(
+            "Additive only.", encoding="utf-8"
+        )
+        window = self.cwb.build("cats", foreground_k=3)
+        self.assertEqual(
+            [bank.name for bank in window.banks], ["identity", "ground"]
+        )
+
+    def test_banks_field_empty_without_files(self):
+        window = self.cwb.build("cats", foreground_k=3)
+        self.assertEqual(window.banks, ())
+
+    def test_foreground_uses_five_signal_scorer_when_metadata_salience_absent(self):
+        """Cohesion: even without metadata.salience floats, the CWB
+        ranks foreground by score_events (which combines recency +
+        standing + citation + reflection + query). Standing material
+        should be at the top regardless of query."""
+        # Fresh CWB with events that carry NO salience metadata, only
+        # a standing flag on one of them.
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            store = EventStore(home)
+            store.append(
+                "Ordinary A", actor="peter",
+                kind="observation", session_id="s",
+            )
+            store.append(
+                "Ordinary B", actor="peter",
+                kind="observation", session_id="s",
+            )
+            standing = store.append(
+                "Rule: measure first",
+                actor="peter", kind="observation", session_id="s",
+                metadata={"standing": True},
+            )
+            cwb = ContextWindowBuilder(
+                store,
+                retrieval_backend=VistaBackend(store),
+            )
+            window = cwb.build("unrelated query", foreground_k=3)
+            # The standing event outranks the two ordinaries on the
+            # multi-signal scorer even though the query does not match it.
+            self.assertEqual(window.foreground[0].id, standing.id)
 
     def test_ledger_untouched_after_many_builds(self):
         before = [
