@@ -1,7 +1,7 @@
-# LoCoMo results (v0.2.0, 2026-08-10)
+# LoCoMo results (v0.2.0+, 2026-08-10 to 2026-08-11)
 
-Six JSON manifests in this directory. Four are the current canonical
-per-config results; two are experimental sidecars preserved for the
+Seven JSON manifests in this directory. Six are canonical
+per-config results; three are experimental sidecars preserved for the
 audit trail (additive law: nothing severed).
 
 ## Canonical
@@ -15,12 +15,15 @@ introduced in PR #28. All ten LoCoMo10 conversations, 1986 questions.
 | `sparse.json` | sparse | The zero-dep `VistaBackend` (TF-IDF-style sparse features). |
 | `hybrid_no_dense.json` | hybrid-no-dense | Reciprocal Rank Fusion of sparse + BM25. Free, zero-dep. |
 | `hybrid_no_dense.with_consolidation.tau10y.json` | hybrid-no-dense + Hou 2024 wrapper | Same, wrapped in the ConsolidationBackend (time-decay + recall-frequency scoring per arXiv 2404.00573) at tau=10 years. Lifts Recall@10 by +25% over baseline while keeping Recall@5 flat. Free, zero-dep. |
+| `hybrid_no_dense.with_reflections.json` | hybrid-no-dense **+ meditate + dream** | Same, plus per-session meditations and cross-session dreams as first-class retrievable evidence. Score with `--expand-derived-from`. Free, zero-dep. |
 | `hybrid_voyage.json` | hybrid-voyage | RRF of sparse + BM25 + Voyage-4 dense. Requires `[vista]` extra + VOYAGE_API_KEY. |
+| `hybrid_voyage.with_reflections.json` | hybrid-voyage **+ meditate + dream** | Same, with reflections on. Score with `--expand-derived-from`. |
 
 Read `docs/BENCHMARK_LOCOMO.md` for the methodology, the honest
-recall numbers with bootstrap 95% CIs, and the reviewer's null-result
-finding: **dense retrieval does not currently improve Recall@5 over
-sparse + BM25 hybrid on this corpus at this pipeline architecture.**
+recall numbers with bootstrap 95% CIs, and the load-bearing findings
+(dense retrieval does not currently beat hybrid-no-dense on LoCoMo;
+reflections earn a real +10.7% Recall@5 lift on both regimes;
+consolidation at tau=10y earns +25% Recall@10).
 
 ## Experimental sidecars (preserved for audit)
 
@@ -45,15 +48,23 @@ experiment and is trivial to regenerate; not tracked here.
 ## Scoring
 
 ```bash
-# Canonical five-row comparison, including the consolidation wrapper:
-python -m benchmarks.locomo.score \
-  benchmarks/locomo/results/hybrid_no_dense.with_consolidation.tau10y.json \
+# Full canonical comparison (all six committed rows):
+python -m benchmarks.locomo.score --expand-derived-from \
+  benchmarks/locomo/results/hybrid_voyage.with_reflections.json \
   benchmarks/locomo/results/hybrid_voyage.json \
+  benchmarks/locomo/results/hybrid_no_dense.with_reflections.json \
+  benchmarks/locomo/results/hybrid_no_dense.with_consolidation.tau10y.json \
   benchmarks/locomo/results/hybrid_no_dense.json \
   benchmarks/locomo/results/sparse.json \
   benchmarks/locomo/results/recent_only.json
 ```
 
-Add the tau=30d warning sidecar as a sixth row to reproduce the
-"paper's default tau hurts LoCoMo by 48%" finding, and the enriched-
-context sidecar as a seventh to reproduce the canonical-text null.
+`--expand-derived-from` credits a retrieved meditation/dream/summation
+to its source turns when computing recall. Only affects rows produced
+with `--with-reflections` (which record the `derived_from` map per
+row); pre-reflection rows are byte-identical whether the flag is set
+or not.
+
+Add the tau=30d sidecar to reproduce the "paper's default tau hurts
+LoCoMo by 48%" finding; add the enriched-context sidecar to reproduce
+the canonical-text null result.

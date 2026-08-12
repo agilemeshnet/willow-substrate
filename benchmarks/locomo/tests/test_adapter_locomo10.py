@@ -18,6 +18,7 @@ from benchmarks.locomo.adapter import (
     _parse_evidence,
     ingest_into_store,
     load_locomo_conversations,
+    session_ids_for,
 )
 from willow_substrate.store import EventStore
 
@@ -111,6 +112,38 @@ class Locomo10ParserTests(unittest.TestCase):
             self.assertEqual(len(conv.turn_id_to_event_id), 5)
             gold = conv.turn_id_to_event_id["D1:3"]
             self.assertTrue(gold.startswith("evt-"))
+
+    def test_ingest_scopes_session_ids_per_locomo_session(self):
+        """Willow session_id is ``{conv}:s{index}`` so per-session
+        operations (meditate, session summation) can scope. Without this
+        every turn would share one session_id and meditate would have to
+        summarise 419 turns as if they belonged to one conversation
+        chunk, defeating the layer's purpose."""
+        convs = load_locomo_conversations(self.path)
+        conv = convs[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            store = EventStore(Path(tmp))
+            ingest_into_store(store, conv)
+            events = store.events(limit=100, active_only=True)
+            session_ids = {e.session_id for e in events}
+            self.assertEqual(
+                session_ids, {"conv-test-1:s1", "conv-test-1:s2"}
+            )
+            # locomo_session_index preserved in metadata for downstream
+            # tooling that wants the raw LoCoMo session number.
+            for event in events:
+                self.assertIn(
+                    event.metadata.get("locomo_session_index"), (1, 2)
+                )
+
+    def test_session_ids_for_returns_ordered_unique_ids(self):
+        """The helper used by the runner to iterate sessions."""
+        convs = load_locomo_conversations(self.path)
+        conv = convs[0]
+        self.assertEqual(
+            session_ids_for(conv),
+            ["conv-test-1:s1", "conv-test-1:s2"],
+        )
 
 
 class TimestampNormaliserTests(unittest.TestCase):

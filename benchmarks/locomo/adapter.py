@@ -61,6 +61,7 @@ class LocomoTurn:
     speaker: str
     text: str
     timestamp: str  # ISO-8601, tz-aware, after normalisation
+    session_index: int = 0  # LoCoMo session (1..N); 0 if the shape didn't carry one
 
 
 @dataclass
@@ -212,7 +213,9 @@ def _parse_locomo10_turns(conversation: dict) -> tuple[LocomoTurn, ...]:
 
     Timestamps come from the paired session_N_date_time entry and inherit
     to every turn in that session. Empty text turns are skipped so the
-    downstream ledger is not polluted with blank rows.
+    downstream ledger is not polluted with blank rows. The LoCoMo session
+    index is captured on each turn so the ingester can scope Willow
+    session_ids per LoCoMo session; needed for per-session meditate().
     """
     session_keys = sorted(
         (k for k in conversation if _is_session_turns_key(k)),
@@ -246,6 +249,7 @@ def _parse_locomo10_turns(conversation: dict) -> tuple[LocomoTurn, ...]:
                     speaker=speaker,
                     text=text,
                     timestamp=normalised_ts,
+                    session_index=idx,
                 )
             )
     return tuple(turns)
@@ -420,22 +424,53 @@ def ingest_into_store(
     Willow event ids back to gold turn ids without extra bookkeeping.
     The pre-normalisation timestamp is also preserved under
     ``metadata.locomo_timestamp_raw`` so the round trip is auditable.
+
+    ``session_id`` uses ``{conversation_id}:s{session_index}`` so per-
+    LoCoMo-session Willow operations (meditate, per-session summation)
+    work as intended. If the parsed shape didn't carry a session index,
+    the conversation id is used as a single-session fallback so old
+    LoCoMo layouts still ingest.
+
     Uses append_idempotent so re-runs against the same store are safe.
     Populates conversation.turn_id_to_event_id in place.
     """
+    conv_id = conversation.conversation_id
     for turn in conversation.turns:
+        if turn.session_index:
+            session_id = f"{conv_id}:s{turn.session_index}"
+        else:
+            session_id = conv_id
         event, _created = store.append_idempotent(
             turn.text,
-            idempotency_key=f"locomo:{conversation.conversation_id}:{turn.turn_id}",
+            idempotency_key=f"locomo:{conv_id}:{turn.turn_id}",
             actor=turn.speaker,
             kind="message",
-            session_id=conversation.conversation_id,
+            session_id=session_id,
             metadata={
                 "benchmark": "locomo",
-                "locomo_conversation_id": conversation.conversation_id,
+                "locomo_conversation_id": conv_id,
+                "locomo_session_index": turn.session_index,
                 "locomo_turn_id": turn.turn_id,
                 "locomo_timestamp_raw": turn.timestamp,
             },
             timestamp=turn.timestamp or None,
         )
         conversation.turn_id_to_event_id[turn.turn_id] = event.id
+
+
+def session_ids_for(conversation: LocomoConversation) -> list[str]:
+    """Return the unique Willow session ids the ingester assigned, in
+    LoCoMo-session order. Used by callers who want to iterate sessions
+    (e.g., to run meditate on each one).
+    """
+    conv_id = conversation.conversation_id
+    seen: dict[int, str] = {}
+    for turn in conversation.turns:
+        if turn.session_index in seen:
+            continue
+        seen[turn.session_index] = (
+            f"{conv_id}:s{turn.session_index}"
+            if turn.session_index
+            else conv_id
+        )
+    return [seen[i] for i in sorted(seen.keys())]

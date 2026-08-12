@@ -45,6 +45,34 @@ def _recall_at(retrieved: list[str], gold: list[str], k: int) -> float:
     return hit / len(gold)
 
 
+def _expand_via_derived(
+    event_ids: list[str],
+    derived_from: dict[str, list[str]],
+) -> list[str]:
+    """Expand meditation/dream/summation retrievals to their source turns.
+
+    Preserves order: whenever a retrieved id has a derived_from tuple in
+    the map, its source turn ids are appended right after it. The
+    original id stays in the list too (so if by coincidence the
+    meditation event id equals a gold id, it still credits). Idempotent
+    against retrievals that carry no derived_from map (returns input
+    unchanged).
+    """
+    if not derived_from:
+        return list(event_ids)
+    expanded: list[str] = []
+    seen: set[str] = set()
+    for eid in event_ids:
+        if eid not in seen:
+            expanded.append(eid)
+            seen.add(eid)
+        for src in derived_from.get(eid, []):
+            if src not in seen:
+                expanded.append(src)
+                seen.add(src)
+    return expanded
+
+
 def _reciprocal_rank(retrieved: list[str], gold: list[str]) -> float:
     gold_set = set(gold)
     for i, r in enumerate(retrieved, start=1):
@@ -88,16 +116,41 @@ def _bootstrap_ci(
     return means[lo_idx], means[hi_idx]
 
 
-def score_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
-    """Compute per-config aggregate metrics + bootstrap CIs by conversation."""
+def score_manifest(
+    manifest: dict[str, Any],
+    *,
+    expand_derived_from: bool = False,
+) -> dict[str, Any]:
+    """Compute per-config aggregate metrics + bootstrap CIs by conversation.
+
+    ``expand_derived_from``: when True, expand any retrieved
+    meditation/dream/summation id (which the runner records in
+    ``row['derived_from']``) to its source turn ids before scoring. This
+    is the fair way to measure Willow's reflection layer: a retrieval
+    that lands the right meditation still counts as retrieving the gold
+    turns that meditation was derived from. When False (default),
+    retrievals are scored on the raw event ids only, which is fair for
+    reflections-off runs and shows the baseline for reflections-on runs.
+    """
     per_query: list[QueryScore] = []
     for row in manifest["rows"]:
-        retrieved = list(row["retrieved_event_ids"])
+        raw_retrieved = list(row["retrieved_event_ids"])
+        derived_from = row.get("derived_from") or {}
+        retrieved = (
+            _expand_via_derived(raw_retrieved, derived_from)
+            if expand_derived_from
+            else raw_retrieved
+        )
         gold = list(row["gold_event_ids"])
         per_budget_context: dict[int, tuple[float, float]] = {}
         for entry in row.get("per_budget", []):
             budget = int(entry["context_tokens"])
-            final_ids = list(entry.get("final_context_ids", []))
+            raw_final = list(entry.get("final_context_ids", []))
+            final_ids = (
+                _expand_via_derived(raw_final, derived_from)
+                if expand_derived_from
+                else raw_final
+            )
             recall = _recall_at(final_ids, gold, k=len(final_ids) or 1)
             precision = (
                 sum(1 for i in final_ids if i in set(gold)) / len(final_ids)
@@ -196,13 +249,32 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("manifests", nargs="+", type=Path)
     ap.add_argument("--json", action="store_true")
+    ap.add_argument(
+        "--expand-derived-from",
+        action="store_true",
+        help=(
+            "Expand retrieved meditations/dreams/summations to their "
+            "source turn ids before scoring. Only affects manifests that "
+            "recorded a derived_from map per row (i.e., produced with "
+            "--with-reflections)."
+        ),
+    )
     args = ap.parse_args(argv)
 
     summaries: list[dict[str, Any]] = []
     for path in args.manifests:
         with path.open() as fh:
             manifest = json.load(fh)
-        summaries.append(score_manifest(manifest))
+        summary = score_manifest(
+            manifest, expand_derived_from=args.expand_derived_from
+        )
+        summary["scored_with_expand_derived_from"] = bool(
+            args.expand_derived_from
+        )
+        summary["with_reflections"] = bool(
+            manifest.get("with_reflections", False)
+        )
+        summaries.append(summary)
 
     if args.json:
         print(json.dumps({"summaries": summaries}, indent=2))
