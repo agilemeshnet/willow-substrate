@@ -396,6 +396,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Return a failure instead of silently allowing the host turn",
     )
 
+    corpus = sub.add_parser(
+        "import",
+        help="Import a Markdown corpus as immutable events",
+    )
+    corpus.add_argument("path", type=Path)
+    corpus.add_argument("--actor", default="corpus")
+    corpus.add_argument("--kind", default="note")
+    corpus.add_argument("--session", default="corpus")
+    corpus.add_argument("--pattern", default="*.md")
+
     sub.add_parser("verify", help="Verify the immutable event hash chain")
     sub.add_parser("status", help="Show substrate location and event count")
     return parser
@@ -433,6 +443,41 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(f"Willow initialized at {store.home}")
                 print(f"Shared event store: {store.db_path}")
+            return 0
+
+        if args.command == "import":
+            from willow_substrate.corpus import import_markdown
+            report = import_markdown(
+                store,
+                args.path,
+                actor=args.actor,
+                kind=args.kind,
+                session_id=args.session,
+                pattern=args.pattern,
+            )
+            if args.json:
+                print(json.dumps({
+                    "root": str(report.root),
+                    "created": [item.relative_path for item in report.created],
+                    "superseded": [
+                        item.relative_path for item in report.superseded
+                    ],
+                    "unchanged": [
+                        item.relative_path for item in report.unchanged
+                    ],
+                    "skipped": [
+                        {"path": str(path), "reason": reason}
+                        for path, reason in report.skipped
+                    ],
+                }))
+                return 0
+            for item in report.created:
+                print(f"created    {item.relative_path}  {item.event.short_id}")
+            for item in report.superseded:
+                print(f"updated    {item.relative_path}  {item.event.short_id}")
+            for path, reason in report.skipped:
+                print(f"skipped    {path}  ({reason})")
+            print(report.summary())
             return 0
 
         if args.command == "record":
