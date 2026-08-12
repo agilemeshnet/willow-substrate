@@ -139,3 +139,38 @@ Scout. Scout's cwb.py stays personal; `willow_substrate.cwb` is the
 generic version, wired to any backend, composable with the reflection
 layer (meditate + dream) and the consolidation wrapper (Hou 2024) that
 already ship.
+
+## Measured against LoCoMo (honest finding)
+
+The LoCoMo benchmark runner supports `--use-cwb`, which routes the
+final-context assembly through `ContextWindowBuilder` instead of the
+flat `ContextBuilder`. Raw retrieval (`backend.query()`) is byte-
+identical between the two paths; only the final-context assembly
+differs.
+
+### Numbers (in-context recall at 256 token budget)
+
+| Config | ContextBuilder | ContextWindowBuilder | Delta |
+|---|---|---|---|
+| sparse | 0.375 (0.361 to 0.389) | 0.087 (0.074 to 0.100) | -0.288 |
+| hybrid-no-dense | 0.375 (0.361 to 0.389) | 0.155 (0.135 to 0.175) | -0.220 |
+
+### Read
+
+The CWB is NOT a drop-in improvement over `ContextBuilder` for
+task-oriented evidence retrieval. It puts fewer of the gold events into
+a small token budget because it delivers whole layered events without
+per-event content truncation, and its layer prioritisation
+(standing > foreground > vista > wave) discards the wave layer at low
+budgets. On LoCoMo the wave layer is where multi-hop-relevant events
+land, so LoCoMo penalises the CWB's shape.
+
+The CWB is optimised for a DIFFERENT job: assembling a user-facing
+layered surface where downstream consumers see standing, foreground,
+vista, wave, prosoche each on its own channel. Task-oriented evidence
+recall (LoCoMo's target) is the flat `ContextBuilder`'s job; the CWB
+is for surfaces where the layers themselves are the deliverable.
+
+Use `--use-cwb` when you want to measure the CWB path on your own
+corpus and see how the layered shape scores. Do not read the LoCoMo
+delta as a regression; read it as the shape difference it is.
