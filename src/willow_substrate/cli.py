@@ -421,6 +421,20 @@ def build_parser() -> argparse.ArgumentParser:
     corpus.add_argument("--session", default="corpus")
     corpus.add_argument("--pattern", default="*.md")
 
+    salience_cmd = sub.add_parser(
+        "salience",
+        help="Rank active experience by explainable salience signals",
+    )
+    salience_cmd.add_argument("query", nargs="?", default="")
+    salience_cmd.add_argument("--limit", type=int, default=15)
+    salience_cmd.add_argument("--kind")
+    salience_cmd.add_argument("--scan", type=int, default=500)
+    salience_cmd.add_argument(
+        "--explain",
+        action="store_true",
+        help="Show the contributing signal for each ranked item",
+    )
+
     sub.add_parser("verify", help="Verify the immutable event hash chain")
     sub.add_parser("status", help="Show substrate location and event count")
     return parser
@@ -548,6 +562,52 @@ def main(argv: list[str] | None = None) -> int:
             for path, reason in report.skipped:
                 print(f"skipped    {path}  ({reason})")
             print(report.summary())
+            return 0
+
+        if args.command == "salience":
+            from willow_substrate.salience import score_events
+            events = store.events(
+                limit=args.scan,
+                kind=args.kind,
+                active_only=True,
+            )
+            scores = score_events(events, query=args.query)
+            ranked = sorted(
+                events,
+                key=lambda event: -scores[event.id].total,
+            )[: args.limit]
+            if args.json:
+                print(json.dumps({
+                    "query": args.query,
+                    "scanned": len(events),
+                    "ranked": [
+                        {
+                            "event": _event_dict(event),
+                            "score": round(scores[event.id].total, 6),
+                            "signals": [
+                                {
+                                    "name": signal.name,
+                                    "value": round(signal.value, 6),
+                                    "detail": signal.detail,
+                                }
+                                for signal in scores[event.id].signals
+                            ],
+                        }
+                        for event in ranked
+                    ],
+                }))
+                return 0
+            if not ranked:
+                print("No active experience to rank.")
+                return 0
+            for event in ranked:
+                score = scores[event.id]
+                compact = " ".join(event.content.split())
+                if len(compact) > 88:
+                    compact = compact[:85] + "..."
+                print(f"{score.total:6.2f}  {event.short_id}  {compact}")
+                if args.explain:
+                    print(f"        {score.explain()}")
             return 0
 
         if args.command == "record":
