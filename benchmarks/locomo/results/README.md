@@ -18,6 +18,8 @@ introduced in PR #28. All ten LoCoMo10 conversations, 1986 questions.
 | `hybrid_no_dense.with_reflections.json` | hybrid-no-dense **+ meditate + dream** | Same, plus per-session meditations and cross-session dreams as first-class retrievable evidence. Score with `--expand-derived-from`. Free, zero-dep. |
 | `hybrid_voyage.json` | hybrid-voyage | RRF of sparse + BM25 + Voyage-4 dense. Requires `[vista]` extra + VOYAGE_API_KEY. |
 | `hybrid_voyage.with_reflections.json` | hybrid-voyage **+ meditate + dream** | Same, with reflections on. Score with `--expand-derived-from`. |
+| `sparse.use_cwb.json` | sparse **+ ContextWindowBuilder** | Final context assembled via the layered `ContextWindowBuilder` (standing + foreground + vista + wave) instead of the flat `ContextBuilder`. Raw retrieval is byte-identical to `sparse.json`; only `final_context_ids` differ (in-context recall lower). Kept to document the shape difference honestly. |
+| `hybrid_no_dense.use_cwb.json` | hybrid-no-dense **+ ContextWindowBuilder** | Same layered-vs-flat comparison for the hybrid backend. Raw retrieval byte-identical to `hybrid_no_dense.json`; in-context recall lower because the CWB is optimised for a different downstream shape (user-facing layered surface, not maximum evidence density per token budget). |
 
 Read `docs/BENCHMARK_LOCOMO.md` for the methodology, the honest
 recall numbers with bootstrap 95% CIs, and the load-bearing findings

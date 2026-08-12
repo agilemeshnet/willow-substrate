@@ -268,6 +268,7 @@ def run_conversation(
     with_reflections: bool = False,
     with_consolidation: bool = False,
     consolidation_tau_s: float | None = None,
+    use_cwb: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Score every question in one conversation. Returns per-query rows
     and a telemetry dict about the reflection pass (empty if disabled).
@@ -276,6 +277,14 @@ def run_conversation(
     reflections adds meditation + dream events to the store BEFORE the
     backend is built; consolidation wraps the resulting backend in a
     time-decay + recall-frequency scoring layer per Hou et al. 2024.
+
+    ``use_cwb``: when True, assemble the final context via
+    ``willow_substrate.cwb.ContextWindowBuilder`` instead of the flat
+    ``ContextBuilder``. The CWB layers (standing + foreground + vista +
+    wave, plus banks and prosoche if configured) each contribute event
+    ids; ``final_context_ids`` for scoring is ``window.all_event_ids``.
+    Cross-checks whether the layered assembler recovers evidence at a
+    different rate than the flat packet.
     """
     rows: list[dict[str, Any]] = []
     reflection_stats: dict[str, int] = {}
@@ -290,14 +299,17 @@ def run_conversation(
             consolidation_tau_s=consolidation_tau_s,
         )
 
-        # ContextBuilder is optional per config (skip for pure retrieval
-        # rows). When on, always uses the SAME backend the raw retrieval
-        # measured, so the split truly reflects assembly's contribution.
-        composer = (
-            ContextBuilder(store, relational_backend=backend)
-            if config.include_final_context
-            else None
-        )
+        # Choose the composer. Old flat packet vs new layered window.
+        cwb_composer = None
+        composer = None
+        if config.include_final_context:
+            if use_cwb:
+                from willow_substrate.cwb import ContextWindowBuilder
+                cwb_composer = ContextWindowBuilder(
+                    store, retrieval_backend=backend,
+                )
+            else:
+                composer = ContextBuilder(store, relational_backend=backend)
 
         for q in conversation.questions:
             if isinstance(backend, _Oracle):
@@ -318,6 +330,7 @@ def run_conversation(
             per_budget: list[dict[str, Any]] = []
             in_context_ids_all: set[str] = set()
             if composer is not None:
+                # Old path: flat ContextBuilder, token-budgeted per budget.
                 for budget in config.context_tokens:
                     ct0 = time.perf_counter()
                     packet = composer.build(q.text, token_budget=budget)
@@ -329,6 +342,42 @@ def run_conversation(
                             "context_tokens": budget,
                             "final_context_ids": in_context_ids,
                             "context_latency_ms": round(context_ms, 2),
+                        }
+                    )
+            elif cwb_composer is not None:
+                # New path: layered ContextWindowBuilder. The window has
+                # no token budget of its own; we take the deduplicated
+                # all_event_ids and truncate proportionally per budget
+                # (~4 chars/token, 500 chars/event heuristic like the
+                # flat composer's).
+                for budget in config.context_tokens:
+                    ct0 = time.perf_counter()
+                    window = cwb_composer.build(
+                        q.text, foreground_k=min(15, budget // 200),
+                    )
+                    context_ms = (time.perf_counter() - ct0) * 1000.0
+                    max_events_for_budget = max(1, budget // 60)
+                    in_context_ids = list(
+                        window.all_event_ids[:max_events_for_budget]
+                    )
+                    in_context_ids_all.update(in_context_ids)
+                    per_budget.append(
+                        {
+                            "context_tokens": budget,
+                            "final_context_ids": in_context_ids,
+                            "context_latency_ms": round(context_ms, 2),
+                            "cwb_layer_sizes": {
+                                "standing": len(window.standing),
+                                "foreground": len(window.foreground),
+                                "vista": (
+                                    len(window.vista.evidence)
+                                    if window.vista else 0
+                                ),
+                                "wave": (
+                                    len(window.wave.evidence)
+                                    if window.wave else 0
+                                ),
+                            },
                         }
                     )
 
@@ -365,6 +414,7 @@ def run(
     with_reflections: bool = False,
     with_consolidation: bool = False,
     consolidation_tau_s: float | None = None,
+    use_cwb: bool = False,
 ) -> dict[str, Any]:
     """Run one config against the LoCoMo corpus.
 
@@ -407,6 +457,7 @@ def run(
             with_reflections=with_reflections,
             with_consolidation=with_consolidation,
             consolidation_tau_s=consolidation_tau_s,
+            use_cwb=use_cwb,
         )
         all_rows.extend(rows)
         for key, value in stats.items():
@@ -429,6 +480,7 @@ def run(
         "reflection_totals": reflection_totals if with_reflections else None,
         "with_consolidation": with_consolidation,
         "consolidation_tau_s": consolidation_tau_s if with_consolidation else None,
+        "use_cwb": use_cwb,
         "n_conversations": len(conversations),
         "n_questions": len(all_rows),
         "wall_seconds": round(wall_seconds, 2),
@@ -495,6 +547,16 @@ def main(argv: list[str] | None = None) -> int:
             "drop at tau=30d because questions ask about old events."
         ),
     )
+    ap.add_argument(
+        "--use-cwb",
+        action="store_true",
+        help=(
+            "Assemble final context via ContextWindowBuilder (layered: "
+            "standing + foreground + vista + wave) instead of the flat "
+            "ContextBuilder. Records per-budget layer sizes in each row "
+            "so cwb_layer_sizes can be inspected downstream."
+        ),
+    )
     args = ap.parse_args(argv)
     tau_s = (
         args.consolidation_tau_days * 86400.0
@@ -510,6 +572,7 @@ def main(argv: list[str] | None = None) -> int:
         with_reflections=args.with_reflections,
         with_consolidation=args.with_consolidation,
         consolidation_tau_s=tau_s,
+        use_cwb=args.use_cwb,
     )
     reflection_note = (
         f" reflections={manifest['reflection_totals']}"
