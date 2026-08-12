@@ -343,6 +343,24 @@ def build_parser() -> argparse.ArgumentParser:
     meditation.add_argument("--text")
     meditation.add_argument("--actor", default="willow")
     meditation.add_argument("--shape", action="append", default=[])
+    meditation.add_argument(
+        "--llm",
+        choices=["anthropic"],
+        default=None,
+        help=(
+            "Route drafting through an LLM meditator (abstractive) "
+            "instead of the deterministic extractive summariser. "
+            "'anthropic' requires the [anthropic] extra + "
+            "ANTHROPIC_API_KEY. Reads WILLOW_ANTHROPIC_MODEL env var "
+            "for model choice (default claude-sonnet-4-5)."
+        ),
+    )
+    meditation.add_argument(
+        "--llm-max-tokens",
+        type=int,
+        default=400,
+        help="Hard cap on the LLM meditation length (default 400).",
+    )
 
     connect = sub.add_parser(
         "connect",
@@ -994,12 +1012,17 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.command == "meditate":
+            adapter = None
+            if args.llm == "anthropic":
+                from willow_substrate.llm import AnthropicMeditator
+                adapter = AnthropicMeditator(max_tokens=args.llm_max_tokens)
             event = meditate(
                 store,
                 args.session,
                 text=args.text,
                 actor=args.actor,
                 shapes=args.shape,
+                meditator=adapter,
             )
             _print_event(event, args.json)
             return 0

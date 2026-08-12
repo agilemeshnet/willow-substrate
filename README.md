@@ -152,6 +152,7 @@ turn on per call.
 | Constitutional banks | v0.2.1 | `IDENTITY.md` + `GROUND.md` + optional `banks/*.md` loaded whole at boot, never truncated. Edit files with `ls` and `cat`. |
 | Salience scorer | v0.2.1 | Explainable five-signal ranking (standing + citation + reflection + recency + query) so truncation is a decision, not an accident. |
 | Trained readout | v0.2.2 | Two-stage retrieval: Wave retrieves the candidate pool; a `LinearReranker` scores each candidate on `[vista, wave_final, wave_peak, wave_hop_of_peak, wave_early, channel_bias]` features. Weights fit externally with any linear model; ships with a default pre-fitted set. Zero-dep. `willow_substrate.readout`; opt in via `VistaBackend.query(..., reranker=...)`. See [docs/design/TWO_STAGE_RETRIEVAL.md](docs/design/TWO_STAGE_RETRIEVAL.md). |
+| LLM adapter for meditate | v0.2.2 | The "future model-adapter boundary" the reflection layer always advertised. `AnthropicMeditator` (ships with the `[anthropic]` extra) turns extractive meditations into LLM-authored abstractive ones. Opt-in per call; no hidden cost. |
 
 **The recommended composed stack for a stranger installing willow-substrate today:**
 
