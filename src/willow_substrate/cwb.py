@@ -223,6 +223,14 @@ class ContextWindowBuilder:
     ) -> tuple[Event, ...]:
         """Top-k events by the five-signal salience scorer.
 
+        The requested k is capped at max(1, corpus_size // 3) so the
+        foreground never covers most of the store. This keeps the vista
+        and wave layers useful on small tryout corpora where a
+        default foreground_k could otherwise seed vista/wave with every
+        event in the store (and get 0 evidence back, since seeds are
+        excluded from vista matches by design). On any realistic
+        corpus of 50+ events the cap is a no-op.
+
         Delegates to ``willow_substrate.salience.score_events`` so
         ranking is explainable (standing + citation + reflection +
         recency + query) rather than a single opaque signal. A stored
@@ -234,6 +242,7 @@ class ContextWindowBuilder:
         active = list(self.store.events(limit=10_000, active_only=True))
         if not active:
             return ()
+        effective_k = max(1, min(k, len(active) // 3 or 1))
         scores = score_events(active, query=query)
         active.sort(key=lambda ev: -scores[ev.id].total)
-        return tuple(active[:k])
+        return tuple(active[:effective_k])
