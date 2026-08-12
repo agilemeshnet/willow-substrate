@@ -23,6 +23,7 @@ class ContextPacket:
     requested_tokens: int | None = None
     pressure_phase: str = "open"
     vista: VistaResult | None = None
+    banks: tuple = ()  # Constitutional floor loaded from WILLOW_HOME banks
 
 
 class ContextBuilder:
@@ -218,7 +219,20 @@ class ContextBuilder:
         token_budget: int = 4000,
         use_vista: bool = True,
     ) -> ContextPacket:
-        """Build a stable boot packet with optional local identity banks."""
+        """Build a stable boot packet with constitutional banks + flow.
+
+        Banks are the constitutional floor (identity + ground + optional
+        ``banks/*.md``); they are included whole at the top of every boot
+        and never truncated to make room for experience. Flow is the
+        ranked continuity retrieved from the ledger, budgeted against
+        the residual after the banks are paid.
+
+        See ``willow_substrate.banks`` for the loader; ``willow init``
+        scaffolds ``IDENTITY.md`` and ``GROUND.md`` templates when they
+        are missing.
+        """
+
+        from willow_substrate.banks import load_banks, render_banks
 
         lines = [
             "# Willow boot",
@@ -227,19 +241,20 @@ class ContextBuilder:
             "Continuity belongs to the shared substrate, not to a particular "
             "model process. Re-establish the work from the evidence below.",
         ]
-        for filename, heading in (
-            ("identity.md", "Identity bank"),
-            ("ground.md", "Constitutional ground"),
-        ):
-            path = Path(self.store.home) / filename
-            if not path.exists():
-                continue
-            try:
-                text = path.read_text(encoding="utf-8").strip()
-            except OSError:
-                continue
-            if text:
-                lines.extend(["", f"## {heading}", "", text])
+        # Constitutional floor: identity + ground + optional banks/*.md,
+        # rendered whole. Case-insensitive; empty and unreadable files skip.
+        # The floor is paid FIRST; experience is budgeted against the residual
+        # so a budget that cannot afford both loses experience, never identity.
+        banks = load_banks(self.store.home)
+        if banks:
+            lines.extend([
+                "",
+                (
+                    "The sections below are constitutional: included whole on "
+                    "every boot and never truncated to make room for experience."
+                ),
+            ])
+            lines.extend(render_banks(banks))
 
         prefix = "\n".join(lines)
         remaining = max(100, token_budget - max(1, len(prefix) // 4))
@@ -261,6 +276,7 @@ class ContextBuilder:
             vista=continuity.vista,
             requested_tokens=token_budget,
             pressure_phase=continuity.pressure_phase,
+            banks=banks,
         )
 
     def breathe(self, query: str, *, limit: int = 4) -> str:

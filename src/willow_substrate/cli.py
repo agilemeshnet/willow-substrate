@@ -115,7 +115,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("init", help="Initialize the shared local substrate")
+    init = sub.add_parser("init", help="Initialize the shared local substrate")
+    init.add_argument(
+        "--without-banks",
+        action="store_true",
+        help="Do not scaffold identity and ground bank templates",
+    )
+
+    banks_cmd = sub.add_parser(
+        "banks",
+        help="Show the constitutional banks included whole at every boot",
+    )
+    banks_cmd.add_argument(
+        "--full",
+        action="store_true",
+        help="Print bank contents rather than a summary",
+    )
 
     record = sub.add_parser("record", help="Append a message, action, or observation")
     record.add_argument("text")
@@ -423,16 +438,71 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "init":
+            from willow_substrate.banks import scaffold_banks
+            scaffolded = (
+                () if args.without_banks else scaffold_banks(store.home)
+            )
             result = {
                 "home": str(store.home),
                 "database": str(store.db_path),
                 "events": store.count(),
+                "banks_scaffolded": [str(path) for path in scaffolded],
             }
             if args.json:
                 print(json.dumps(result))
             else:
                 print(f"Willow initialized at {store.home}")
                 print(f"Shared event store: {store.db_path}")
+                for path in scaffolded:
+                    print(f"Bank template written: {path}")
+                if scaffolded:
+                    print(
+                        "Edit the bank templates before first boot; they are "
+                        "included whole and never truncated."
+                    )
+            return 0
+
+        if args.command == "banks":
+            from willow_substrate.banks import load_banks
+            banks = load_banks(store.home)
+            if args.json:
+                print(json.dumps({
+                    "home": str(store.home),
+                    "banks": [
+                        {
+                            "name": bank.name,
+                            "heading": bank.heading,
+                            "path": str(bank.path),
+                            "bytes": bank.size_bytes,
+                            "estimated_tokens": bank.estimated_tokens,
+                            "text": bank.text if args.full else None,
+                        }
+                        for bank in banks
+                    ],
+                    "total_estimated_tokens": sum(
+                        bank.estimated_tokens for bank in banks
+                    ),
+                }))
+                return 0
+            if not banks:
+                print(
+                    "No constitutional banks found. Write identity.md and "
+                    f"ground.md in {store.home}, or run 'willow init'."
+                )
+                return 0
+            for bank in banks:
+                print(
+                    f"{bank.heading}: {bank.path} "
+                    f"({bank.size_bytes} bytes, ~{bank.estimated_tokens} tokens)"
+                )
+                if args.full:
+                    print()
+                    print(bank.text)
+                    print()
+            print(
+                f"Floor: ~{sum(bank.estimated_tokens for bank in banks)} tokens "
+                "included whole on every boot."
+            )
             return 0
 
         if args.command == "record":
