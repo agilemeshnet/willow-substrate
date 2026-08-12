@@ -227,6 +227,30 @@ class ContextWindowBuilderTests(unittest.TestCase):
             e.hash for e in self.store.events(limit=100, active_only=True)
         ]
         self.assertEqual(before, after)
+
+    def test_foreground_k_capped_on_small_corpora_leaves_room_for_vista(self):
+        """On a tiny store (5 events), foreground_k=15 would seed every
+        event and give vista nothing distinct to return. The cap keeps
+        foreground <= corpus_size // 3 so vista/wave stay useful.
+        Regression against the small-corpus degeneracy caught in the
+        end-to-end tryout."""
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            store = EventStore(home)
+            for i in range(5):
+                store.append(
+                    f"Event {i} about connectomes and databases",
+                    actor="peter", kind="observation", session_id="s",
+                )
+            cwb = ContextWindowBuilder(
+                store, retrieval_backend=VistaBackend(store)
+            )
+            # Ask for 15 foreground; corpus has 5. Cap should give
+            # max(1, 5 // 3) = 1 foreground event, leaving vista candidates.
+            window = cwb.build("connectome", foreground_k=15)
+            self.assertLessEqual(len(window.foreground), max(1, 5 // 3))
+            # Vista must return SOMETHING now that seeds don't cover the corpus.
+            self.assertIsNotNone(window.vista)
         valid, count, error = self.store.verify()
         self.assertTrue(valid, error)
 
