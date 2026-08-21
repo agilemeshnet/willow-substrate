@@ -225,6 +225,25 @@ class RerankerIntegrationTests(unittest.TestCase):
             expected = reranker.score(evidence.wave_features)
             self.assertAlmostEqual(evidence.score, expected, places=6)
 
+    def test_reranker_is_applied_when_wave_is_disabled(self):
+        """A reranker still scores direct Vista evidence with zero wave data."""
+        first, _, _ = self._seed_corpus()
+        reranker = LinearReranker.from_dict({}, bias=42.0)
+        result = VistaBackend(self.store).query(
+            first.content,
+            seed_event_ids=(first.id,),
+            limit=5,
+            wave_hops=0,
+            reranker=reranker,
+        )
+        self.assertTrue(result.evidence)
+        for evidence in result.evidence:
+            self.assertIsNotNone(evidence.wave_features)
+            self.assertEqual(evidence.score, 42.0)
+            self.assertEqual(evidence.wave_features.wave_score, 0.0)
+            self.assertEqual(evidence.wave_features.wave_peak, 0.0)
+            self.assertEqual(evidence.wave_features.wave_early, 0.0)
+
     def test_reranker_can_flip_evidence_order(self):
         """A reranker that only trusts wave_score should reorder evidence
         differently from one that only trusts vista_score, proving the

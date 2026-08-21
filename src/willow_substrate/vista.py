@@ -693,7 +693,7 @@ class VistaBackend:
                 else 0.0
             )
             wave_features: WaveFeatures | None = None
-            if reranker is not None and wave_trajectory:
+            if reranker is not None:
                 per_hop = [
                     (
                         snapshot.get(event_id, 0.0) / hop_peaks[index]

@@ -21,10 +21,10 @@ See ``docs/design/TWO_STAGE_RETRIEVAL.md`` for the full design and
 measurement narrative.
 
 This module ships a dependency-free ``LinearReranker`` that accepts a
-pre-fitted weight vector; training helpers that require numpy /
-scikit-learn live in the optional :mod:`readout_ridge` submodule and
-extras. The reference backend accepts an optional reranker in
-``VistaBackend.query`` without changing the default behaviour.
+pre-fitted weight vector. Fit weights externally with the training tool of
+your choice, then pass them to ``LinearReranker.from_dict``. The reference
+backend accepts an optional reranker in ``VistaBackend.query`` without
+changing the default behaviour.
 """
 
 from __future__ import annotations
@@ -91,8 +91,7 @@ class LinearReranker:
     substrate (+345% recall@K lift over bare wave sort; see the design
     doc). Users who wish to fit their own reranker on their corpus can
     use ``LinearReranker.from_dict`` after training with any linear model
-    on the ``as_vector`` features, or install the ``[readout]`` extras
-    for the ``readout_ridge`` helper.
+    on the ``as_vector`` features.
     """
 
     weights: Mapping[str, float] = field(default_factory=dict)
