@@ -345,21 +345,39 @@ def build_parser() -> argparse.ArgumentParser:
     meditation.add_argument("--shape", action="append", default=[])
     meditation.add_argument(
         "--llm",
-        choices=["anthropic"],
+        choices=["claude-code", "anthropic"],
         default=None,
         help=(
             "Route drafting through an LLM meditator (abstractive) "
             "instead of the deterministic extractive summariser. "
+            "'claude-code' (recommended) shells out to the local "
+            "`claude` CLI and consumes Claude Code subscription budget "
+            "instead of per-token API billing; reads WILLOW_CLAUDE_MODEL "
+            "env var for model choice (default 'sonnet'). "
             "'anthropic' requires the [anthropic] extra + "
-            "ANTHROPIC_API_KEY. Reads WILLOW_ANTHROPIC_MODEL env var "
-            "for model choice (default claude-sonnet-4-5)."
+            "ANTHROPIC_API_KEY and is per-token API-billed; reads "
+            "WILLOW_ANTHROPIC_MODEL env var for model choice "
+            "(default claude-sonnet-4-5)."
         ),
     )
     meditation.add_argument(
         "--llm-max-tokens",
         type=int,
         default=400,
-        help="Hard cap on the LLM meditation length (default 400).",
+        help=(
+            "Hard cap on the LLM meditation length (default 400). "
+            "Honoured by the 'anthropic' adapter; the 'claude-code' "
+            "adapter enforces length via the system prompt instead."
+        ),
+    )
+    meditation.add_argument(
+        "--llm-timeout-s",
+        type=int,
+        default=120,
+        help=(
+            "Subprocess timeout for the 'claude-code' adapter (seconds, "
+            "default 120). Ignored by other adapters."
+        ),
     )
 
     connect = sub.add_parser(
@@ -1013,7 +1031,10 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "meditate":
             adapter = None
-            if args.llm == "anthropic":
+            if args.llm == "claude-code":
+                from willow_substrate.llm import ClaudeCodeMeditator
+                adapter = ClaudeCodeMeditator(timeout_s=args.llm_timeout_s)
+            elif args.llm == "anthropic":
                 from willow_substrate.llm import AnthropicMeditator
                 adapter = AnthropicMeditator(max_tokens=args.llm_max_tokens)
             event = meditate(
