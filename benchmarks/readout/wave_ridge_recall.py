@@ -1,15 +1,15 @@
-"""Benchmark: reproduce the two-stage-retrieval lift on the reference backend.
+"""Benchmark: exercise two-stage retrieval on the reference backend.
 
 Builds a synthetic event corpus with known topic clusters, runs
 VistaBackend.query without and with LinearReranker.default(), reports
 mean recall@K of same-topic events in the top-K evidence.
 
-The point of the benchmark is to verify that the retrieve-then-rerank
-architecture documented in ``docs/design/TWO_STAGE_RETRIEVAL.md`` is
-substrate-independent. The empirical +345% lift on Peter Cooper's
-Voyage-embedded Doozer substrate does not have to repeat exactly on
-this sparse lexical-semantic reference backend; what matters is that
-the direction and shape of the lift are consistent.
+The benchmark is an integration and measurement example, not a reproduction
+of the empirical +345% lift measured on Peter Cooper's Voyage-embedded Doozer
+substrate. The sparse reference backend and this synthetic corpus may produce
+a smaller lift, no lift, or a regression. Treat the printed measurements as
+corpus-specific and fit/evaluate weights on representative held-out data
+before making a performance claim.
 
 Zero dependencies. Runs in a few seconds.
 """
@@ -250,7 +250,7 @@ def main() -> None:
             if baseline_mean > 0
             else float("inf")
         )
-        print(f"  Corpus-fitted LinearReranker (grid search over 4 weights):")
+        print(f"  In-sample grid-search LinearReranker (4 weights):")
         print(f"    mean recall@5:   {best_mean:.3f}  "
               f"lift {best_lift:+.3f} ({best_pct:+.1f}%)")
         print(f"    weights: {dict(best_reranker.weights)}\n")
@@ -263,16 +263,15 @@ def main() -> None:
             "#   retriever.\n"
             "# * LinearReranker.default() carries weights fit on Peter's\n"
             "#   Voyage-embedded Doozer substrate (see docs/design/\n"
-            "#   TWO_STAGE_RETRIEVAL.md). On a different backend the mix is\n"
-            "#   slightly off; corpus-fitted weights consistently beat the\n"
-            "#   default.\n"
-            "# * The grid search above demonstrates the principle with only\n"
-            "#   the standard library. In production, fit weights with any\n"
-            "#   linear model (Ridge, Logistic, LARS) on the six-column\n"
-            "#   feature matrix from WaveFeatures.as_vector().\n"
-            "# The +345% lift measured on the Doozer substrate does not\n"
-            "# transfer as a magnitude to every corpus; the ARCHITECTURE\n"
-            "# transfers, and per-corpus fitting recovers the direction."
+            "#   TWO_STAGE_RETRIEVAL.md). Its performance on this corpus is\n"
+            "#   a measurement, not a promised improvement.\n"
+            "# * The grid search is in-sample and illustrative only; it is\n"
+            "#   not evidence that the selected weights generalise. In\n"
+            "#   production, fit on training data and evaluate on held-out\n"
+            "#   queries with a linear model over WaveFeatures.as_vector().\n"
+            "# * Do not use this synthetic result to reproduce or substantiate\n"
+            "#   the +345% Doozer lift. It exercises the architecture and\n"
+            "#   reports a corpus-specific result."
         )
     finally:
         temp.cleanup()

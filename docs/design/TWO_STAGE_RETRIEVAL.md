@@ -134,12 +134,16 @@ ad-hoc `max(vista_score, 0.45 * wave_score)` combination, so no
 existing call site changes behaviour. Every previously-shipped test
 still passes on v0.2.2 unchanged.
 
-## Reproducing the lift
+## Exercising the reference implementation
 
-See `benchmarks/readout/wave_ridge_recall.py`. It builds a synthetic
-event corpus with known cluster structure on the reference backend,
-runs Wave without and with `LinearReranker.default()`, and reports the
-recall@K delta. Runs in a few seconds; zero deps.
+See `benchmarks/readout/wave_ridge_recall.py`. It builds a synthetic event
+corpus with known cluster structure on the reference backend, runs Wave
+without and with `LinearReranker.default()`, and reports the Recall@K delta.
+It is an integration and measurement example, not a reproduction of the
+external +345% Doozer result: this sparse synthetic corpus may show a smaller
+lift, no lift, or a regression. Fit on representative training data and
+evaluate against held-out queries before making performance claims. Runs in a
+few seconds; zero dependencies.
 
 ## Extending the readout to non-text channels
 
