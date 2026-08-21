@@ -19,40 +19,52 @@ A ``Meditator`` is anything with this shape::
         def draft(self, session_id: str, events: list[Event]) -> str: ...
 
 Implementations own their own auth, their own retries, their own cost
-accounting. This module ships two:
+accounting. This module ships three:
 
+- ``ClaudeCodeMeditator``: shells out to a locally-installed ``claude``
+  CLI (Anthropic Claude Code). Uses the user's existing ``claude
+  login`` credentials, so LLM-authored meditations are covered by the
+  Claude Code subscription and do NOT incur per-token API cost. Zero
+  Python dependencies beyond the standard library; requires only that
+  the ``claude`` binary be on ``PATH``. This is the recommended path
+  for anyone already using Claude Code.
 - ``AnthropicMeditator``: wraps the ``anthropic`` SDK. Requires the
   ``[anthropic]`` extra (``pip install "willow-substrate[anthropic]"``)
-  and an ``ANTHROPIC_API_KEY``. Ships as the reference implementation
-  because Anthropic is a common substrate; nothing in the design
-  privileges it. The default model comes from
-  ``WILLOW_ANTHROPIC_MODEL`` env var (falls back to
-  ``claude-sonnet-4-5`` if unset).
+  and an ``ANTHROPIC_API_KEY``. This is the *per-token API-billed*
+  path; useful for callers without a Claude Code subscription or who
+  want to route around one.
 - ``MockMeditator``: returns a canned string. Used by tests so the
-  suite never hits a live API and never spends tokens.
+  suite never hits a live API and never spends tokens or subscription
+  budget.
 
 Anyone can add an OpenAI/Ollama/local adapter following the same
 Protocol; none is privileged.
 
 ## Cost gate (important)
 
-Calling ``draft()`` on ``AnthropicMeditator`` makes a real API call. The
-operator (not this module, not the substrate) is responsible for cost.
-For a typical LoCoMo-sized session (20 turns, ~2k tokens in / ~200 out)
-the cost at ``claude-sonnet-4-5`` rates is well under one cent. Users
-sensitive to spending should pick a smaller model, cap session sizes
-before calling meditate, or write their own local-LLM Meditator.
+- ``ClaudeCodeMeditator``: each call spends one turn of the operator's
+  Claude Code subscription. No per-token invoice; the plan absorbs it.
+- ``AnthropicMeditator``: each call makes ONE per-token-billed API
+  request. For a typical LoCoMo-sized session (20 turns, ~2k tokens in
+  / ~200 out) the cost at ``claude-sonnet-4-5`` rates is well under
+  one cent. Cost-sensitive callers should pick a smaller model, cap
+  session sizes before calling meditate, or use the subscription path
+  above.
 """
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 from typing import Protocol
 
 from willow_substrate.events import Event
 
 
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-5"
+DEFAULT_CLAUDE_CODE_MODEL = "sonnet"  # Claude Code CLI accepts short aliases
 DEFAULT_MAX_TOKENS = 400
+DEFAULT_CLAUDE_CODE_TIMEOUT_S = 120
 DEFAULT_SYSTEM_PROMPT = (
     "You are the reflection layer of a memory substrate. Given a series "
     "of turns from one conversation session, draft a concise, honest "
@@ -61,6 +73,25 @@ DEFAULT_SYSTEM_PROMPT = (
     "commitments or corrections that stand out. Do not invent facts. Do "
     "not use em dashes. Return prose, no bullet lists."
 )
+
+
+def _render_transcript_prompt(session_id: str, events: list[Event]) -> str:
+    """Render the session as a short transcript for the LLM.
+
+    Keeps the ordering and speaker labels the events themselves carry;
+    nothing invented, nothing paraphrased on the way in. Shared by
+    every Meditator implementation in this module so the prompt shape
+    is uniform across adapters.
+    """
+    lines = [f"Session id: {session_id}", ""]
+    for event in events:
+        actor = event.actor or "unknown"
+        kind = event.kind or "message"
+        content = " ".join(event.content.split())
+        lines.append(f"- [{actor} ({kind})] {content}")
+    lines.append("")
+    lines.append("Draft the meditation now.")
+    return "\n".join(lines)
 
 
 class Meditator(Protocol):
@@ -89,6 +120,107 @@ class MockMeditator:
     def draft(self, session_id: str, events: list[Event]) -> str:
         self.calls.append((session_id, len(events)))
         return self.template.format(session=session_id, n=len(events))
+
+
+class ClaudeCodeMeditator:
+    """Subscription-routed abstractive Meditator that shells out to the
+    Claude Code CLI (``claude``).
+
+    Uses the operator's existing ``claude login`` credentials. LLM-authored
+    meditations therefore consume Claude Code subscription budget rather
+    than incurring per-token API cost. Zero Python dependencies beyond the
+    standard library; the only external requirement is that the ``claude``
+    binary be on ``PATH``.
+
+    Install Claude Code from https://claude.com/claude-code and run
+    ``claude login`` once. From that point every ``ClaudeCodeMeditator``
+    call is covered by your plan.
+
+    Config:
+    - ``cli_path``: absolute path to the ``claude`` binary. Defaults to
+      ``shutil.which("claude")``.
+    - ``model``: model alias or full id passed to ``claude --model``.
+      Defaults to ``WILLOW_CLAUDE_MODEL`` env var, else ``"sonnet"``.
+    - ``system_prompt``: framing sent via ``claude --system-prompt``.
+    - ``timeout_s``: subprocess timeout in seconds (default 120).
+    - ``extra_args``: additional arguments forwarded to ``claude``, in
+      case the operator wants to pin ``--append-system-prompt`` or
+      similar. Never overrides the four flags this class sets itself
+      (``-p``, ``--model``, ``--system-prompt``, ``--output-format``).
+
+    Failure modes:
+    - Missing binary at construction time raises ``RuntimeError`` so no
+      substrate meditation ever fails silently at first draft.
+    - Non-zero exit or a timeout raises ``RuntimeError`` at ``draft()``
+      time with the CLI's stderr tail included.
+    - Empty stdout returns the literal string ``"(model returned no
+      text)"`` so the meditation event still writes with clear provenance.
+    """
+
+    def __init__(
+        self,
+        *,
+        cli_path: str | None = None,
+        model: str | None = None,
+        system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+        timeout_s: int = DEFAULT_CLAUDE_CODE_TIMEOUT_S,
+        extra_args: list[str] | None = None,
+    ):
+        resolved = cli_path or shutil.which("claude")
+        if not resolved:
+            raise RuntimeError(
+                "`claude` CLI not found on PATH. Install Claude Code from "
+                "https://claude.com/claude-code and run `claude login`."
+            )
+        self.cli_path = resolved
+        self.model = (
+            model or os.environ.get("WILLOW_CLAUDE_MODEL") or DEFAULT_CLAUDE_CODE_MODEL
+        )
+        self.system_prompt = system_prompt
+        self.timeout_s = max(1, int(timeout_s))
+        self.extra_args = list(extra_args) if extra_args else []
+
+    def draft(self, session_id: str, events: list[Event]) -> str:
+        """Draft an abstractive meditation for one session's events.
+
+        Sends the transcript to ``claude -p`` on stdin so long sessions
+        do not run into any argv length limit. Prints one turn's worth
+        of assistant response to stdout, which is what we capture.
+        """
+        if not events:
+            raise ValueError(
+                f"session has no events to meditate over: {session_id}"
+            )
+        prompt = _render_transcript_prompt(session_id, events)
+        cmd = [
+            self.cli_path,
+            "-p",
+            "--model", self.model,
+            "--system-prompt", self.system_prompt,
+            "--output-format", "text",
+            *self.extra_args,
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                input=prompt,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout_s,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"claude CLI timed out after {self.timeout_s}s "
+                f"drafting session {session_id}"
+            ) from exc
+        if proc.returncode != 0:
+            tail = (proc.stderr or "").strip()[-400:]
+            raise RuntimeError(
+                f"claude CLI exited {proc.returncode} for session "
+                f"{session_id}: {tail}"
+            )
+        return proc.stdout.strip() or "(model returned no text)"
 
 
 class AnthropicMeditator:

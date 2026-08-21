@@ -26,9 +26,68 @@ as opaque and stores it as the meditation event's content, with
 `derived_from` pointing at the source turns (identical chain to the
 extractive path).
 
-## Two implementations ship
+## Three implementations ship
 
-### AnthropicMeditator (reference)
+### ClaudeCodeMeditator (recommended, subscription-covered)
+
+The path Anthropic already gives you if you use Claude Code.
+`ClaudeCodeMeditator` shells out to the local `claude` binary, which
+authenticates with your existing `claude login` session, so each
+meditation is covered by your Claude Code subscription rather than
+billed per token against an API key.
+
+Zero Python dependencies beyond the standard library. The only external
+requirement is that the `claude` binary be on `PATH`.
+
+```bash
+# Install Claude Code once, sign in once.
+# https://claude.com/claude-code
+claude login
+```
+
+```python
+from willow_substrate.store import EventStore
+from willow_substrate.reflection import meditate
+from willow_substrate.llm import ClaudeCodeMeditator
+
+store = EventStore("~/.willow")
+meditator = ClaudeCodeMeditator()  # discovers `claude` on PATH
+
+event = meditate(store, "terminal-a", meditator=meditator)
+print(event.content)
+# LLM-authored abstractive meditation, subscription-covered.
+print(event.metadata["generator"])
+# "ClaudeCodeMeditator"
+```
+
+Or from the CLI:
+
+```bash
+willow meditate --session terminal-a --llm claude-code
+```
+
+**Model selection:** the default is `sonnet` (Claude Code accepts short
+aliases: `sonnet`, `opus`, `haiku`, etc., as well as full ids like
+`claude-sonnet-4-5`). Override with `--llm-timeout-s N` for the timeout,
+or `WILLOW_CLAUDE_MODEL=opus` for the model.
+
+**System prompt:** the default framing tells the model to name what
+the session was about, who spoke, what participants moved toward, and
+any commitments or corrections. It also tells it not to invent facts.
+Override via the `system_prompt=` constructor argument, or append via
+`extra_args=["--append-system-prompt", "..."]` if you want to layer
+extra framing on top of the default.
+
+**Cost:** each call spends one Claude Code turn against your plan. No
+per-token invoice; no incremental $ line item. If you exceed your plan
+limit, `claude` itself surfaces that; the meditator will raise a
+`RuntimeError` with the CLI's stderr tail included.
+
+**Auth:** entirely on the CLI's side. Willow never touches your
+credentials. Same auth story you already trust with `claude` day to
+day.
+
+### AnthropicMeditator (per-token API-billed)
 
 ```bash
 pip install "willow-substrate[anthropic]"
@@ -148,7 +207,10 @@ Three ways to produce the meditation text, in this order:
    tag `"supplied"`. Highest priority; a supplied text short-circuits
    the LLM (and its cost) even if a meditator is also passed.
 2. **`meditator=Meditator` (LLM-backed)**: call `meditator.draft(...)`;
-   generator tag names the meditator class (e.g., `"AnthropicMeditator"`).
+   generator tag names the meditator class (e.g.,
+   `"ClaudeCodeMeditator"`, `"AnthropicMeditator"`, or whatever you
+   plugged in). Downstream tooling can filter by generator to keep only
+   the extractive floor when a deterministic answer is required.
 3. **Neither**: fall back to the deterministic extractive summariser;
    generator tag `"extractive-v1"`. Ships zero-dep, always works.
 
