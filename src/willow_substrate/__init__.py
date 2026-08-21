@@ -5,6 +5,14 @@ from willow_substrate.context import ContextBuilder, ContextPacket
 from willow_substrate.events import Event, EventHit
 from willow_substrate.facts import FactCheckResult, FactLedger, FactState
 from willow_substrate.foveation import FoveationResult, Foveator
+from willow_substrate.readout import (
+    FEATURE_NAMES,
+    LinearReranker,
+    Reranker,
+    WaveFeatures,
+    build_wave_features,
+    score_candidates,
+)
 from willow_substrate.research import Citation, ResearchLedger, ResearchState
 from willow_substrate.samples import (
     EvaluationCheck,
@@ -37,8 +45,11 @@ __all__ = [
     "FactCheckResult",
     "FactLedger",
     "FactState",
+    "FEATURE_NAMES",
     "FoveationResult",
     "Foveator",
+    "LinearReranker",
+    "Reranker",
     "ResearchLedger",
     "ResearchState",
     "ReferenceBeam",
@@ -50,10 +61,13 @@ __all__ = [
     "VistaEvidence",
     "VistaMatch",
     "VistaResult",
+    "WaveFeatures",
     "Waypoint",
+    "build_wave_features",
     "evaluate_temporal_sample",
     "find_connections",
     "load_temporal_sample",
+    "score_candidates",
 ]
 
 __version__ = "0.2.0"

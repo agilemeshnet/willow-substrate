@@ -26,6 +26,11 @@ from datetime import datetime
 from typing import Any, Iterable, Mapping, Protocol
 
 from willow_substrate.events import Event, EventHit
+from willow_substrate.readout import (
+    Reranker,
+    WaveFeatures,
+    build_wave_features,
+)
 from willow_substrate.store import EventStore
 
 
@@ -255,6 +260,7 @@ class VistaEvidence:
     vista_slugs: tuple[str, ...]
     waypoints: tuple[str, ...]
     channels: tuple[str, ...]
+    wave_features: WaveFeatures | None = None
 
     def as_event_hit(self) -> EventHit:
         return EventHit(
@@ -507,7 +513,13 @@ class VistaBackend:
         seed_event_ids: Iterable[str] = (),
         limit: int = 8,
         wave_hops: int = 4,
+        reranker: Reranker | None = None,
     ) -> VistaResult:
+        """Vista query. When ``reranker`` is set, evidence is scored via the
+        trained two-stage-retrieval readout (see
+        :mod:`willow_substrate.readout`); otherwise the existing ad-hoc
+        combination is used unchanged.
+        """
         projection = self.project()
         seeds = tuple(
             event_id
@@ -635,18 +647,35 @@ class VistaBackend:
                     key=lambda item: (-item[1], item[0]),
                 )[:3]
             )
-        wave_scores, wave_carriers = self._wave(
-            projection,
-            wave_seeds,
-            hops=max(0, wave_hops),
-            damping=self.wave_damping,
-        )
+        wave_hop_count = max(0, wave_hops)
+        if reranker is not None:
+            wave_scores, wave_carriers, wave_trajectory = self._wave(
+                projection,
+                wave_seeds,
+                hops=wave_hop_count,
+                damping=self.wave_damping,
+                return_trajectory=True,
+            )
+        else:
+            wave_scores, wave_carriers = self._wave(
+                projection,
+                wave_seeds,
+                hops=wave_hop_count,
+                damping=self.wave_damping,
+            )
+            wave_trajectory = []
         non_seed_wave = {
             event_id: score
             for event_id, score in wave_scores.items()
             if event_id not in wave_seeds and score > 0
         }
         wave_peak = max(non_seed_wave.values(), default=0.0)
+        # Per-hop peak used to normalise the per-hop feature into [0, 1] when
+        # a trained reranker consumes the wave's transient shape.
+        hop_peaks = [
+            max((score for score in snapshot.values()), default=0.0)
+            for snapshot in wave_trajectory
+        ]
 
         evidence_ids = set(direct) | set(non_seed_wave)
         evidence: list[VistaEvidence] = []
@@ -663,7 +692,30 @@ class VistaBackend:
                 if wave_peak
                 else 0.0
             )
-            score = max(vista_score, 0.45 * wave_score)
+            wave_features: WaveFeatures | None = None
+            if reranker is not None and wave_trajectory:
+                per_hop = [
+                    (
+                        snapshot.get(event_id, 0.0) / hop_peaks[index]
+                        if hop_peaks[index]
+                        else 0.0
+                    )
+                    for index, snapshot in enumerate(wave_trajectory)
+                ]
+                peak = max(per_hop) if per_hop else 0.0
+                hop_of_peak = per_hop.index(peak) if per_hop and peak > 0 else 0
+                early = per_hop[0] if per_hop else 0.0
+                wave_features = build_wave_features(
+                    vista_score=vista_score,
+                    wave_score=wave_score,
+                    wave_peak=peak,
+                    wave_hop_of_peak_index=hop_of_peak,
+                    wave_early_activation=early,
+                    hops=wave_hop_count,
+                )
+                score = float(reranker.score(wave_features))
+            else:
+                score = max(vista_score, 0.45 * wave_score)
             channels: list[str] = []
             if vista_score:
                 channels.append("vista")
@@ -682,6 +734,7 @@ class VistaBackend:
                     vista_slugs=tuple(sorted(direct_values["slugs"])),
                     waypoints=tuple(sorted(waypoint_names)),
                     channels=tuple(channels),
+                    wave_features=wave_features,
                 )
             )
         evidence.sort(key=lambda item: (-item.score, -item.event.seq))
@@ -950,13 +1003,27 @@ class VistaBackend:
         *,
         hops: int,
         damping: float = 0.5,
-    ) -> tuple[dict[str, float], dict[str, str]]:
+        return_trajectory: bool = False,
+    ):
+        """Degree-normalised, conductance-weighted, damped spreading activation.
+
+        Returns ``(activation, carriers)`` by default. When
+        ``return_trajectory`` is true the wave's per-hop activation snapshots
+        are also returned: ``(activation, carriers, trajectory)`` where
+        ``trajectory`` is a list of length ``hops`` whose entries are
+        dictionaries mapping event id to the settled activation after that
+        hop. The trajectory feeds trained readouts (see
+        :mod:`willow_substrate.readout`) so a reranker can use per-hop
+        wave shape features, not only the final scalar.
+        """
         seed_ids = tuple(
             event_id
             for event_id in dict.fromkeys(seeds)
             if event_id in projection.events
         )
         if not seed_ids or hops <= 0:
+            if return_trajectory:
+                return {}, {}, []
             return {}, {}
         base = {
             event_id: 1.0 / len(seed_ids)
@@ -964,6 +1031,7 @@ class VistaBackend:
         }
         activation = dict(base)
         peak_waypoint_flow: dict[str, float] = defaultdict(float)
+        trajectory: list[dict[str, float]] = []
 
         for _ in range(hops):
             waypoint_activation: dict[str, float] = defaultdict(float)
@@ -1002,6 +1070,8 @@ class VistaBackend:
                 )
                 for event_id in set(memory_activation) | set(base)
             }
+            if return_trajectory:
+                trajectory.append(dict(activation))
 
         carriers: dict[str, str] = {}
         for event_id in activation:
@@ -1022,4 +1092,6 @@ class VistaBackend:
                 )
             if candidates:
                 carriers[event_id] = max(candidates)[1]
+        if return_trajectory:
+            return activation, carriers, trajectory
         return activation, carriers
