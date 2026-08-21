@@ -4,12 +4,12 @@ Builds a synthetic event corpus with known topic clusters, runs
 VistaBackend.query without and with LinearReranker.default(), reports
 mean recall@K of same-topic events in the top-K evidence.
 
-The benchmark is an integration and measurement example, not a reproduction
-of the empirical +345% lift measured on Peter Cooper's Voyage-embedded Doozer
-substrate. The sparse reference backend and this synthetic corpus may produce
-a smaller lift, no lift, or a regression. Treat the printed measurements as
-corpus-specific and fit/evaluate weights on representative held-out data
-before making a performance claim.
+The fixed corpus is a regression benchmark for the reference readout: the
+combined default must beat the legacy `max(vista, 0.45 * wave)` heuristic.
+Its result is not a reproduction of the empirical +345% lift measured on
+Peter Cooper's Voyage-embedded Doozer substrate, nor a promise that these
+weights are optimal for another corpus. Fit and evaluate weights on
+representative held-out data before making a production performance claim.
 
 Zero dependencies. Runs in a few seconds.
 """
@@ -181,29 +181,26 @@ def grid_search_weights(
     topic_ids: dict[str, list[str]],
     K: int = 5,
 ) -> tuple[LinearReranker, float]:
-    """Zero-dep grid search over (vista_weight, wave_weight, peak_weight).
+    """Zero-dep grid search over Vista, Wave, and Wave-arrival weights.
 
-    Cheap sweep over an interpretable range so the benchmark can show that
-    a corpus-fitted LinearReranker beats the bare baseline. Real training
-    should use a proper linear model on the six-feature vectors; this
-    demonstrates the principle without pulling in numpy or scikit-learn.
+    The negative arrival-time coefficient distinguishes early relational
+    recall from late, diffuse activation. Real training should use a proper
+    linear model and held-out data; this small sweep remains dependency-free.
     """
     best_score = -1.0
     best_reranker = LinearReranker.default()
-    for vw in (0.4, 0.6, 0.8, 1.0):
-        for ww in (0.0, 0.1, 0.2, 0.4):
-            for pw in (0.0, 0.1, 0.2):
-                for cb in (0.0, 0.1):
-                    reranker = LinearReranker.from_dict({
-                        "vista_score": vw,
-                        "wave_score": ww,
-                        "wave_peak": pw,
-                        "channel_bias": cb,
-                    })
-                    mean, _ = evaluate(backend, topic_ids, reranker=reranker, K=K)
-                    if mean > best_score:
-                        best_score = mean
-                        best_reranker = reranker
+    for vw in (0.4, 0.65, 0.8, 1.0):
+        for ww in (0.0, 0.065, 0.1, 0.2):
+            for hop_weight in (-0.5, -0.325, -0.2, 0.0):
+                reranker = LinearReranker.from_dict({
+                    "vista_score": vw,
+                    "wave_score": ww,
+                    "wave_hop_of_peak": hop_weight,
+                })
+                mean, _ = evaluate(backend, topic_ids, reranker=reranker, K=K)
+                if mean > best_score:
+                    best_score = mean
+                    best_reranker = reranker
     return best_reranker, best_score
 
 
@@ -226,9 +223,15 @@ def main() -> None:
 
         default = LinearReranker.default()
         default_mean, default_median = evaluate(backend, topic_ids, reranker=default)
-        print(f"  LinearReranker.default() (weights fit on Doozer substrate):")
+        default_lift = default_mean - baseline_mean
+        default_pct = (
+            100.0 * default_lift / baseline_mean
+            if baseline_mean else float("inf")
+        )
+        print(f"  LinearReranker.default() (Wave + Vista readout):")
         print(f"    mean recall@5:   {default_mean:.3f}")
-        print(f"    median recall@5: {default_median:.3f}\n")
+        print(f"    median recall@5: {default_median:.3f}")
+        print(f"    lift:            {default_lift:+.3f} ({default_pct:+.1f}%)\n")
 
         # Vista-only reranker: only trust the semantic proximity feature.
         vista_only = LinearReranker.from_dict({"vista_score": 1.0})
@@ -250,7 +253,7 @@ def main() -> None:
             if baseline_mean > 0
             else float("inf")
         )
-        print(f"  In-sample grid-search LinearReranker (4 weights):")
+        print(f"  In-sample grid-search LinearReranker (3 weights):")
         print(f"    mean recall@5:   {best_mean:.3f}  "
               f"lift {best_lift:+.3f} ({best_pct:+.1f}%)")
         print(f"    weights: {dict(best_reranker.weights)}\n")
@@ -261,17 +264,15 @@ def main() -> None:
             "#   carry real signal. Wave alone is worse than Vista alone,\n"
             "#   as expected: Vista is the fine reranker, Wave is the coarse\n"
             "#   retriever.\n"
-            "# * LinearReranker.default() carries weights fit on Peter's\n"
-            "#   Voyage-embedded Doozer substrate (see docs/design/\n"
-            "#   TWO_STAGE_RETRIEVAL.md). Its performance on this corpus is\n"
-            "#   a measurement, not a promised improvement.\n"
-            "# * The grid search is in-sample and illustrative only; it is\n"
-            "#   not evidence that the selected weights generalise. In\n"
-            "#   production, fit on training data and evaluate on held-out\n"
-            "#   queries with a linear model over WaveFeatures.as_vector().\n"
+            "# * The default combines Vista similarity with final Wave\n"
+            "#   activation and early arrival. A late Wave peak is penalised,\n"
+            "#   so diffuse traversal cannot outrank close relational recall.\n"
+            "# * The fixed corpus is a regression guard: the combined default\n"
+            "#   must beat the legacy heuristic. The grid search is in-sample\n"
+            "#   and illustrative only; it is not evidence of generalisation.\n"
             "# * Do not use this synthetic result to reproduce or substantiate\n"
-            "#   the +345% Doozer lift. It exercises the architecture and\n"
-            "#   reports a corpus-specific result."
+            "#   the +345% Doozer lift. Fit on training data and evaluate on\n"
+            "#   held-out queries for a production corpus."
         )
     finally:
         temp.cleanup()

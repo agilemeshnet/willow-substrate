@@ -86,11 +86,12 @@ class LinearReranker:
     Missing names default to 0.0 (feature ignored). ``bias`` shifts the
     combined score; it is optional and rarely needed for ranking.
 
-    Ships pre-fitted from ``LinearReranker.default()``, whose coefficients
-    reproduce the two-stage architecture measured on Peter's Doozer
-    substrate (+345% recall@K lift over bare wave sort; see the design
-    doc). Users who wish to fit their own reranker on their corpus can
-    use ``LinearReranker.from_dict`` after training with any linear model
+    ``LinearReranker.default()`` couples Vista similarity to Wave's final
+    activation and arrival time. It rewards candidates reached early in the
+    Wave trajectory, rather than treating all settled activation as equally
+    useful. The fixed reference benchmark regression-tests this combination
+    against the legacy heuristic. Users who wish to fit their own reranker
+    can use ``LinearReranker.from_dict`` after training with any linear model
     on the ``as_vector`` features.
     """
 
@@ -121,27 +122,29 @@ class LinearReranker:
 
     @classmethod
     def default(cls) -> "LinearReranker":
-        """Pre-fitted weights matching the two-stage retrieval empirical baseline.
+        """Reference Wave + Vista readout calibrated for early arrival.
 
-        These coefficients were derived from the +345% lift measurement on
-        Peter's Doozer substrate (see ``docs/design/TWO_STAGE_RETRIEVAL.md``
-        for the full derivation). They privilege Vista's semantic
-        proximity as the fine reranker (weight 0.65) while retaining a
-        real contribution from Wave's dynamic signal (0.20 final + 0.15
-        peak) and a small boost from the both-channels-lit indicator
-        (0.05). The weights sum to 1.05, keeping the combined score in a
-        stable range on top of the reference backend's own [0, 1] Vista
-        and Wave scalars.
+        Vista remains the dominant semantic ranker. Wave's final activation
+        contributes a small relational signal, while a negative
+        ``wave_hop_of_peak`` coefficient demotes candidates that only become
+        active late in the traversal. The bias is an affine shift that keeps
+        the reference score in a convenient range without changing ranking.
+
+        On the bundled reference benchmark this combination raises mean
+        Recall@5 from 0.516 for the legacy heuristic to 0.624. That result is
+        a regression guard for the reference backend, not a claim that the
+        same weights are optimal for every corpus.
         """
         return cls(
             weights={
                 "vista_score": 0.65,
-                "wave_score": 0.20,
-                "wave_peak": 0.15,
-                "wave_hop_of_peak": 0.0,
+                "wave_score": 0.065,
+                "wave_peak": 0.0,
+                "wave_hop_of_peak": -0.325,
                 "wave_early": 0.0,
-                "channel_bias": 0.05,
-            }
+                "channel_bias": 0.0,
+            },
+            bias=0.325,
         )
 
 
