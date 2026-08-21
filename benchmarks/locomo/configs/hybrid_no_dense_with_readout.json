@@ -1,0 +1,10 @@
+{
+  "name": "hybrid-no-dense-with-readout",
+  "backend": "hybrid",
+  "backend_kwargs": {
+    "use_readout": true
+  },
+  "context_tokens": [256, 512, 1024, 2048],
+  "include_final_context": true,
+  "notes": "Same as hybrid-no-dense (sparse + BM25 via RRF, no dense) but with LinearReranker.default() applied to the sparse VistaBackend query so the two-stage Wave->reranker readout influences the fused ranking. Tests whether the +345% Doozer / +20.9% synthetic regression lift transfers to LoCoMo Recall@K."
+}

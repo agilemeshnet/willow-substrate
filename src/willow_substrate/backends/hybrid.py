@@ -133,10 +133,15 @@ class _BM25Recall:
 
 
 def _sparse_ranking(
-    backend: VistaBackend, query: str, *, limit: int, seeds: tuple[str, ...]
+    backend: VistaBackend,
+    query: str,
+    *,
+    limit: int,
+    seeds: tuple[str, ...],
+    reranker=None,
 ) -> list[str]:
     result = backend.query(
-        query, seed_event_ids=seeds, limit=max(limit, 8)
+        query, seed_event_ids=seeds, limit=max(limit, 8), reranker=reranker
     )
     return [item.event.id for item in result.evidence][:limit]
 
@@ -183,11 +188,17 @@ class HybridRecallBackend:
         k_rrf: int = 60,
         sparse: VistaBackend | None = None,
         bm25: _BM25Recall | None = None,
+        reranker=None,
+        use_readout: bool = False,
     ):
         if k_rrf < 1:
             raise ValueError("k_rrf must be positive")
         self.store = store
         self.k_rrf = k_rrf
+        if reranker is None and use_readout:
+            from willow_substrate.readout import LinearReranker
+            reranker = LinearReranker.default()
+        self.reranker = reranker
         sparse_kwargs = {}
         if max_events is not None:
             sparse_kwargs["max_events"] = max_events
@@ -218,7 +229,8 @@ class HybridRecallBackend:
         contributions: list[_BackendContribution] = []
 
         sparse_ranking = _sparse_ranking(
-            self.sparse, query, limit=wide, seeds=seeds
+            self.sparse, query, limit=wide, seeds=seeds,
+            reranker=self.reranker,
         )
         contributions.append(
             _BackendContribution(name="sparse", ranking=sparse_ranking)
