@@ -76,8 +76,28 @@ def meditate(
     text: str | None = None,
     actor: str = "willow",
     shapes: Iterable[str] = (),
+    meditator=None,
 ) -> Event:
-    """Append a meditation derived from active events in one session."""
+    """Append a meditation derived from active events in one session.
+
+    Three ways to produce the meditation text, in priority order:
+
+    1. ``text=str`` (supplied): use the caller's exact string; generator
+       tag ``"supplied"``.
+    2. ``meditator=Meditator`` (LLM-backed abstractive): call
+       ``meditator.draft(session_id, events)`` and use the result;
+       generator tag names the meditator class (e.g.,
+       ``"AnthropicMeditator"``). This is the plug-in point Willow's
+       reflection layer has always advertised as the future model-
+       adapter boundary. See ``willow_substrate.llm``.
+    3. Neither: fall back to the deterministic extractive summariser;
+       generator tag ``"extractive-v1"``. Ships zero-dep, always works.
+
+    The chain of provenance (``derived_from``) is identical across all
+    three paths; only the ``content`` (and the ``generator`` tag) differs.
+    Whichever path produced the text, the meditation lands as an
+    immutable event with links back to its source turns.
+    """
 
     events = store.events(
         limit=500,
@@ -88,16 +108,27 @@ def meditate(
     if not events:
         raise ValueError(f"session has no active events: {session_id}")
 
-    content = text.strip() if text and text.strip() else _extractive_meditation(
-        session_id, events
-    )
+    if text and text.strip():
+        content = text.strip()
+        generator = "supplied"
+    elif meditator is not None:
+        content = meditator.draft(session_id, events).strip()
+        if not content:
+            raise ValueError(
+                f"meditator {type(meditator).__name__} returned empty content"
+            )
+        generator = type(meditator).__name__
+    else:
+        content = _extractive_meditation(session_id, events)
+        generator = "extractive-v1"
+
     return store.append(
         content,
         actor=actor,
         kind="meditation",
         session_id=session_id,
         metadata={
-            "generator": "extractive-v1" if not text else "supplied",
+            "generator": generator,
             "source_event_count": len(events),
             "idea_shape": list(normalize_shapes(shapes)),
         },

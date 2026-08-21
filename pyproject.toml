@@ -55,6 +55,14 @@ neo4j = [
     "neo4j>=5.14",
     "python-dotenv>=1.0",
 ]
+# Anthropic-backed AbstractiveMeditator (LLM plug-in for the reflection
+# layer). Turns the deterministic extractive meditate() into an LLM-authored
+# distillation. Nothing calls the model unless the caller passes an
+# AnthropicMeditator instance to meditate(...) explicitly; installing the
+# extra by itself does not activate LLM calls or accrue cost.
+anthropic = [
+    "anthropic>=0.34",
+]
 # The whole memory-and-recall stack at once. Convenient for full-fidelity
 # reproduction of how the internal Willow runs. Additional adapters (Cognee,
 # Fable specialist, hatch drain, federation) will land as their own extras
@@ -66,6 +74,7 @@ full = [
     "requests>=2.31",
     "neo4j>=5.14",
     "python-dotenv>=1.0",
+    "anthropic>=0.34",
 ]
 
 [project.scripts]
