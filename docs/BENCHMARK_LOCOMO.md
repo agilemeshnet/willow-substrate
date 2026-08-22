@@ -250,6 +250,29 @@ The `--with-reflections` flag on the runner and the
   displaces the raw gold turn from the ranked list even though it
   covers the gold.
 
+### Abstractive meditations (`--reflection-llm`)
+
+`--with-reflections` defaults to the deterministic extractive
+summariser in `willow_substrate.reflection`. That summariser packs
+high-frequency non-stopwords, which can dominate a hybrid reranker's
+default weights and cannibalise gold-turn recall when composed with
+other arms. To route each per-session draft through an LLM instead:
+
+- `--reflection-llm claude-code` shells out to the local `claude`
+  CLI. Each draft consumes Claude Code subscription budget instead of
+  per-token API billing; requires the `claude` binary on `PATH`.
+  Optional `--reflection-llm-timeout-s` (default 120).
+- `--reflection-llm anthropic` calls the Anthropic SDK using
+  `ANTHROPIC_API_KEY` (per-token billed). Optional
+  `--reflection-llm-max-tokens` (default 400).
+
+Both take effect only when `--with-reflections` is also set. The
+chosen meditator is recorded in the manifest as `reflection_llm` so
+result sets can be filtered by generator; the derived-from chain is
+identical across all three paths, so `--expand-derived-from` credits
+LLM-drafted meditations to their source turns exactly as it does
+extractive ones. See `docs/LLM.md` for the cost gate on each adapter.
+
 ### Numbers (with `--expand-derived-from`)
 
 Same ten conversations, 1986 questions, bootstrap 95% CIs by

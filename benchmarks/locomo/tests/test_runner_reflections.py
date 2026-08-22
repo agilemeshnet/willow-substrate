@@ -23,11 +23,16 @@ from benchmarks.locomo.adapter import (
     LocomoTurn,
     ingest_into_store,
 )
-from benchmarks.locomo.run import _run_reflections, _derived_from_for
+from benchmarks.locomo.run import (
+    _derived_from_for,
+    _make_reflection_meditator,
+    _run_reflections,
+)
 from benchmarks.locomo.score import (
     _expand_via_derived,
     score_manifest,
 )
+from willow_substrate.llm import MockMeditator
 from willow_substrate.store import EventStore
 
 
@@ -95,6 +100,37 @@ class ReflectionsRunnerTests(unittest.TestCase):
                     "meditation must carry derived_from links",
                 )
 
+    def test_reflections_with_meditator_uses_the_meditator(self):
+        """A supplied Meditator drafts each per-session meditation and
+        the resulting event's generator tag names the meditator class."""
+        conv = _fake_conversation()
+        with tempfile.TemporaryDirectory() as tmp:
+            store = EventStore(Path(tmp))
+            ingest_into_store(store, conv)
+            meditator = MockMeditator()
+            stats = _run_reflections(store, conv, meditator=meditator)
+
+            # Two sessions -> two meditations, all drafted by the mock.
+            self.assertEqual(stats["meditations"], 2)
+            self.assertEqual(len(meditator.calls), 2)
+
+            meditations = [
+                e
+                for e in store.events(limit=100, active_only=True)
+                if e.kind == "meditation"
+            ]
+            self.assertEqual(len(meditations), 2)
+            for meditation in meditations:
+                self.assertEqual(
+                    meditation.metadata.get("generator"),
+                    "MockMeditator",
+                )
+                self.assertIn("MOCK:", meditation.content)
+                self.assertTrue(
+                    meditation.derived_from,
+                    "LLM-drafted meditation must still carry derived_from links",
+                )
+
     def test_derived_from_for_looks_up_only_meditation_and_dream_kinds(self):
         conv = _fake_conversation()
         with tempfile.TemporaryDirectory() as tmp:
@@ -114,6 +150,22 @@ class ReflectionsRunnerTests(unittest.TestCase):
                 else:
                     self.assertIn(eid, derived)
                     self.assertTrue(derived[eid])
+
+
+class MakeReflectionMeditatorTests(unittest.TestCase):
+    def test_extractive_returns_none(self):
+        """'extractive' means fall back to the deterministic summariser."""
+        self.assertIsNone(
+            _make_reflection_meditator(
+                "extractive", timeout_s=1, max_tokens=1,
+            )
+        )
+
+    def test_unknown_kind_raises(self):
+        with self.assertRaises(ValueError):
+            _make_reflection_meditator(
+                "not-a-real-meditator", timeout_s=1, max_tokens=1,
+            )
 
 
 class ScoreExpandTests(unittest.TestCase):

@@ -215,7 +215,12 @@ def _pack_result(events, scores):
     )
 
 
-def _run_reflections(store: EventStore, conversation: LocomoConversation) -> dict[str, int]:
+def _run_reflections(
+    store: EventStore,
+    conversation: LocomoConversation,
+    *,
+    meditator=None,
+) -> dict[str, int]:
     """Invoke Willow's shipped reflection layer over one conversation's store.
 
     Per-session meditate() collapses each LoCoMo session into a
@@ -225,13 +230,22 @@ def _run_reflections(store: EventStore, conversation: LocomoConversation) -> dic
     connected source events, so a retrieval that lands a dream still
     ties back to gold via the derived-from chain when the scorer opts in.
 
-    Both are local, deterministic, no API cost. Returns a small telemetry
-    dict recorded in the run manifest.
+    When ``meditator`` is None (default) the meditation text comes from
+    the deterministic extractive summariser (zero-dep, always works).
+    Passing an object satisfying ``willow_substrate.llm.Meditator``
+    routes each per-session draft through an LLM (subscription-covered
+    ``ClaudeCodeMeditator``, per-token-billed ``AnthropicMeditator``,
+    or any caller-supplied adapter). The LLM-authored reflection channel
+    is worth measuring because extractive summaries pack high-frequency
+    non-stopwords and can dominate a hybrid reranker's default weights;
+    abstractive drafts may not. See docs/BENCHMARK_LOCOMO.md.
+
+    Returns a small telemetry dict recorded in the run manifest.
     """
     meditations = 0
     for session_id in session_ids_for(conversation):
         try:
-            meditate(store, session_id)
+            meditate(store, session_id, meditator=meditator)
             meditations += 1
         except ValueError:
             # Empty session (all turns dropped as blank); skip cleanly.
@@ -240,6 +254,38 @@ def _run_reflections(store: EventStore, conversation: LocomoConversation) -> dic
     # LoCoMo's ~19-session conversations without exploding into every pair.
     dreams = len(dream(store, query="", limit=50))
     return {"meditations": meditations, "dreams": dreams}
+
+
+def _make_reflection_meditator(
+    kind: str,
+    *,
+    timeout_s: int,
+    max_tokens: int,
+):
+    """Construct the meditator selected by ``--reflection-llm``.
+
+    - ``"extractive"`` (default): return ``None`` so ``_run_reflections``
+      falls back to the deterministic zero-dep summariser shipped in
+      ``willow_substrate.reflection``. No dependency, no API cost.
+    - ``"claude-code"``: return a ``ClaudeCodeMeditator`` that shells
+      out to the local ``claude`` CLI. Each per-session draft consumes
+      Claude Code subscription budget, not per-token API billing.
+      Requires the ``claude`` binary on PATH.
+    - ``"anthropic"``: return an ``AnthropicMeditator`` that uses the
+      Anthropic SDK. Requires the ``[anthropic]`` extra and
+      ``ANTHROPIC_API_KEY``; per-token billed.
+
+    See ``docs/LLM.md`` for the cost gate on each adapter.
+    """
+    if kind == "extractive":
+        return None
+    if kind == "claude-code":
+        from willow_substrate.llm import ClaudeCodeMeditator
+        return ClaudeCodeMeditator(timeout_s=timeout_s)
+    if kind == "anthropic":
+        from willow_substrate.llm import AnthropicMeditator
+        return AnthropicMeditator(max_tokens=max_tokens)
+    raise ValueError(f"unknown --reflection-llm value: {kind}")
 
 
 def _derived_from_for(store: EventStore, event_ids: list[str]) -> dict[str, list[str]]:
@@ -266,6 +312,7 @@ def run_conversation(
     *,
     top_k: int,
     with_reflections: bool = False,
+    reflection_meditator=None,
     with_consolidation: bool = False,
     consolidation_tau_s: float | None = None,
     use_cwb: bool = False,
@@ -277,6 +324,13 @@ def run_conversation(
     reflections adds meditation + dream events to the store BEFORE the
     backend is built; consolidation wraps the resulting backend in a
     time-decay + recall-frequency scoring layer per Hou et al. 2024.
+
+    ``reflection_meditator``: an optional object satisfying
+    ``willow_substrate.llm.Meditator``. When supplied and
+    ``with_reflections=True``, each per-session meditation is drafted
+    by that adapter (e.g., ``ClaudeCodeMeditator`` for subscription-
+    covered abstractive drafts) instead of the deterministic extractive
+    summariser. Passed straight through to ``_run_reflections``.
 
     ``use_cwb``: when True, assemble the final context via
     ``willow_substrate.cwb.ContextWindowBuilder`` instead of the flat
@@ -292,7 +346,9 @@ def run_conversation(
         store = EventStore(Path(tmp))
         ingest_into_store(store, conversation)
         if with_reflections:
-            reflection_stats = _run_reflections(store, conversation)
+            reflection_stats = _run_reflections(
+                store, conversation, meditator=reflection_meditator,
+            )
         backend = _make_backend(
             store, config, conversation,
             with_consolidation=with_consolidation,
@@ -412,6 +468,8 @@ def run(
     limit_conversations: int | None = None,
     dataset_dir_override: str | None = None,
     with_reflections: bool = False,
+    reflection_llm: str = "extractive",
+    reflection_meditator=None,
     with_consolidation: bool = False,
     consolidation_tau_s: float | None = None,
     use_cwb: bool = False,
@@ -429,6 +487,12 @@ def run(
     events become first-class retrievable evidence; the scorer's
     ``--expand-derived-from`` flag then credits meditation/dream
     retrievals to their source turns when computing recall.
+
+    ``reflection_llm`` names the meditator kind for manifest provenance
+    ("extractive" | "claude-code" | "anthropic"); ``reflection_meditator``
+    is the constructed adapter (or None for extractive). Both are only
+    honoured when ``with_reflections`` is True. Recorded in the manifest
+    so downstream scoring runs can filter by generator.
 
     ``with_consolidation``, when True, wraps the backend in a
     ConsolidationBackend applying time-decay + recall-frequency scoring
@@ -455,6 +519,7 @@ def run(
         rows, stats = run_conversation(
             conversation, config, top_k=top_k,
             with_reflections=with_reflections,
+            reflection_meditator=reflection_meditator,
             with_consolidation=with_consolidation,
             consolidation_tau_s=consolidation_tau_s,
             use_cwb=use_cwb,
@@ -477,6 +542,7 @@ def run(
         "willow_commit": _willow_commit(),
         "dataset_dir": effective_dataset_dir,
         "with_reflections": with_reflections,
+        "reflection_llm": reflection_llm if with_reflections else None,
         "reflection_totals": reflection_totals if with_reflections else None,
         "with_consolidation": with_consolidation,
         "consolidation_tau_s": consolidation_tau_s if with_consolidation else None,
@@ -525,6 +591,41 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     ap.add_argument(
+        "--reflection-llm",
+        choices=["extractive", "claude-code", "anthropic"],
+        default="extractive",
+        help=(
+            "How to author each per-session meditation when "
+            "--with-reflections is set. Default 'extractive' uses the "
+            "deterministic zero-dep summariser in "
+            "willow_substrate.reflection. 'claude-code' shells out to "
+            "the local `claude` CLI so drafts consume Claude Code "
+            "subscription budget rather than per-token API billing; "
+            "requires the `claude` binary on PATH. 'anthropic' calls "
+            "the Anthropic SDK using ANTHROPIC_API_KEY (per-token "
+            "billed). Recorded in the manifest as 'reflection_llm'."
+        ),
+    )
+    ap.add_argument(
+        "--reflection-llm-timeout-s",
+        type=int,
+        default=120,
+        help=(
+            "Subprocess timeout (seconds) for --reflection-llm "
+            "claude-code drafts. Default 120. Ignored otherwise."
+        ),
+    )
+    ap.add_argument(
+        "--reflection-llm-max-tokens",
+        type=int,
+        default=400,
+        help=(
+            "Max tokens per meditation for --reflection-llm anthropic. "
+            "Default 400. The claude-code adapter enforces length via "
+            "its system prompt instead."
+        ),
+    )
+    ap.add_argument(
         "--with-consolidation",
         action="store_true",
         help=(
@@ -543,7 +644,7 @@ def main(argv: list[str] | None = None) -> int:
             "Default 3650 days (10 years), which makes time-decay a "
             "near-no-op and lets the recall-frequency signal dominate. "
             "Reduce to the paper's 30-day scale for chat-agent use "
-            "cases where recency matters; LoCoMo shows a 48% Recall@5 "
+            "cases where recency matters; LoCoMo shows a 48%% Recall@5 "
             "drop at tau=30d because questions ask about old events."
         ),
     )
@@ -563,6 +664,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.with_consolidation
         else None
     )
+    reflection_meditator = (
+        _make_reflection_meditator(
+            args.reflection_llm,
+            timeout_s=args.reflection_llm_timeout_s,
+            max_tokens=args.reflection_llm_max_tokens,
+        )
+        if args.with_reflections
+        else None
+    )
     manifest = run(
         args.config,
         output_path=args.output,
@@ -570,12 +680,15 @@ def main(argv: list[str] | None = None) -> int:
         limit_conversations=args.limit_conversations,
         dataset_dir_override=args.dataset_dir,
         with_reflections=args.with_reflections,
+        reflection_llm=args.reflection_llm if args.with_reflections else "extractive",
+        reflection_meditator=reflection_meditator,
         with_consolidation=args.with_consolidation,
         consolidation_tau_s=tau_s,
         use_cwb=args.use_cwb,
     )
     reflection_note = (
         f" reflections={manifest['reflection_totals']}"
+        f" reflection_llm={manifest.get('reflection_llm')}"
         if manifest.get("with_reflections") and manifest.get("reflection_totals")
         else ""
     )
