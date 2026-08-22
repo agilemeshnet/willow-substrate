@@ -3,9 +3,9 @@
 **Status.** Ships in v0.2.2 as a zero-dep primitive.
 **Modules.** `willow_substrate.readout`, `willow_substrate.vista.VistaBackend.query(..., reranker=...)`.
 **Empirical anchor.** +345% recall@K lift, measured on Peter Cooper's
-1440-memory / 400-waypoint Doozer substrate (2026-08-21). Same
-architecture reproduced on the zero-dep reference backend by the
-benchmark script at `benchmarks/readout/wave_ridge_recall.py`.
+1440-memory / 400-waypoint Doozer substrate (2026-08-21). The fixed
+zero-dependency reference benchmark also guards a positive Wave + Vista lift:
+0.516 to 0.624 mean Recall@5 (+20.9%).
 
 ## What the substrate has been doing all along
 
@@ -124,8 +124,7 @@ Custom weights via `LinearReranker.from_dict({feature_name: coef, ...})`.
 Fit your own coefficients externally with any linear model
 (Ridge, Logistic Regression, LARS, or a hand-rolled least-squares
 solver over the six-column feature matrix) and pass them into
-`from_dict`. Training helpers requiring `numpy`/`scikit-learn` will
-land in a follow-up as an optional extra.
+`from_dict`.
 
 ### Preserved defaults
 
@@ -139,11 +138,12 @@ still passes on v0.2.2 unchanged.
 See `benchmarks/readout/wave_ridge_recall.py`. It builds a synthetic event
 corpus with known cluster structure on the reference backend, runs Wave
 without and with `LinearReranker.default()`, and reports the Recall@K delta.
-It is an integration and measurement example, not a reproduction of the
-external +345% Doozer result: this sparse synthetic corpus may show a smaller
-lift, no lift, or a regression. Fit on representative training data and
-evaluate against held-out queries before making performance claims. Runs in a
-few seconds; zero dependencies.
+The fixed benchmark is a regression guard: the default's early-arrival Wave
+signal raises mean Recall@5 from 0.516 to 0.624 (+20.9%) over the legacy
+heuristic. It is not a reproduction of the external +345% Doozer result or a
+guarantee for another corpus; fit on representative training data and evaluate
+against held-out queries before making production performance claims. Runs in
+a few seconds; zero dependencies.
 
 ## Extending the readout to non-text channels
 

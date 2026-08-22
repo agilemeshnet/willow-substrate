@@ -12,6 +12,7 @@ Covers:
 
 from __future__ import annotations
 
+import runpy
 import tempfile
 import unittest
 from pathlib import Path
@@ -111,21 +112,22 @@ class LinearRerankerTests(unittest.TestCase):
         )
         self.assertAlmostEqual(reranker.score(self.FEATURES), expected)
 
-    def test_default_reranker_weights_are_normalised_enough(self):
+    def test_default_reranker_rewards_early_wave_arrival(self):
         default = LinearReranker.default()
-        # Default coefficients favour vista_score (fine reranker) while
-        # keeping a real wave contribution.
+        # The default combines fine semantic ranking with Wave's activation
+        # and prefers evidence reached earlier in the trajectory.
         self.assertEqual(default.weights["vista_score"], 0.65)
         self.assertGreater(default.weights["wave_score"], 0.0)
-        self.assertGreater(default.weights["wave_peak"], 0.0)
-        # Combined score for a fully-lit both-channels candidate falls
-        # in a stable range around 1.
-        strong = WaveFeatures(
-            vista_score=1.0, wave_score=1.0, wave_peak=1.0,
-            wave_hop_of_peak=0.5, wave_early=1.0, channel_bias=1.0,
+        self.assertLess(default.weights["wave_hop_of_peak"], 0.0)
+        early = WaveFeatures(
+            vista_score=0.5, wave_score=0.5, wave_peak=0.5,
+            wave_hop_of_peak=0.0, wave_early=0.5, channel_bias=1.0,
         )
-        self.assertGreater(default.score(strong), 0.9)
-        self.assertLess(default.score(strong), 1.5)
+        late = WaveFeatures(
+            vista_score=0.5, wave_score=0.5, wave_peak=0.5,
+            wave_hop_of_peak=0.75, wave_early=0.5, channel_bias=1.0,
+        )
+        self.assertGreater(default.score(early), default.score(late))
 
     def test_from_dict_rejects_unknown_features(self):
         with self.assertRaises(ValueError):
@@ -273,6 +275,27 @@ class RerankerIntegrationTests(unittest.TestCase):
                     for v in vista_only.evidence
                 )
             )
+
+
+class ReferenceReadoutBenchmarkTests(unittest.TestCase):
+    def test_default_reranker_beats_the_legacy_heuristic(self):
+        """The fixed reference corpus guards the intended Wave + Vista lift."""
+        root = Path(__file__).resolve().parents[1]
+        benchmark = runpy.run_path(
+            str(root / "benchmarks" / "readout" / "wave_ridge_recall.py")
+        )
+        store, temporary, topic_ids = benchmark["build_store"]()
+        try:
+            backend = VistaBackend(store)
+            baseline, _ = benchmark["evaluate"](backend, topic_ids)
+            combined, _ = benchmark["evaluate"](
+                backend,
+                topic_ids,
+                reranker=LinearReranker.default(),
+            )
+        finally:
+            temporary.cleanup()
+        self.assertGreater(combined, baseline)
 
 
 if __name__ == "__main__":
